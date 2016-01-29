@@ -1,0 +1,35 @@
+{
+  "name": "marsdb-meteor",
+  "description": "Standalone Meteor client based on MarsDB",
+  "main": "index.js",
+  "authors": [
+    "Artem Artemev"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "mongo",
+    "minimongo",
+    "embedded",
+    "meteor",
+    "db",
+    "database",
+    "meteor"
+  ],
+  "homepage": "https://github.com/c58/marsdb-meteor",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:c58/marsdb-meteor.git"
+  },
+  "moduleType": [
+    "amd",
+    "globals",
+    "node"
+  ],
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}

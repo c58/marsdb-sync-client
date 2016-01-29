@@ -1,0 +1,77 @@
+{
+  "name": "marsdb-meteor",
+  "version": "0.0.1",
+  "author": "Artem Artemev <art@studytime.me>",
+  "contributors": [
+    "Artem Artemev"
+  ],
+  "description": "Standalone Meteor client based on MarsDB",
+  "keywords": [
+    "mongo",
+    "minimongo",
+    "embedded",
+    "meteor",
+    "db",
+    "database",
+    "meteor"
+  ],
+  "homepage": "https://github.com/c58/marsdb-meteor",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/c58/marsdb-meteor.git"
+  },
+  "dependencies": {
+    "core-js": "^2.0.0",
+    "invariant": "^2.2.0",
+    "js-sha256": "^0.3.0",
+    "keymirror": "^0.1.1",
+    "marsdb": "^0.4.3"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.3.17",
+    "babel-eslint": "^5.0.0-beta6",
+    "babel-preset-es2015": "^6.3.13",
+    "babel-register": "^6.3.13",
+    "babelify": "^7.2.0",
+    "brfs": "^1.4.1",
+    "browserify": "^12.0.1",
+    "bulk-require": "^0.2.1",
+    "bulkify": "^1.1.1",
+    "chai": "^3.4.1",
+    "chai-as-promised": "^5.2.0",
+    "coveralls": "^2.11.6",
+    "del": "^2.2.0",
+    "envify": "^3.4.0",
+    "fbjs-scripts": "^0.5.0",
+    "gulp": "^3.9.0",
+    "gulp-babel": "^6.1.1",
+    "gulp-eslint": "^1.1.1",
+    "gulp-if": "^2.0.0",
+    "gulp-rename": "^1.2.2",
+    "gulp-uglify": "^1.5.1",
+    "istanbul": "^1.0.0-alpha.2",
+    "mocha": "^2.3.4",
+    "mocha-lcov-reporter": "^1.0.0",
+    "mocha-phantomjs": "^4.0.2",
+    "require-dir": "^0.3.0",
+    "run-sequence": "^1.1.5",
+    "vinyl-buffer": "^1.0.0",
+    "vinyl-source-stream": "^1.1.0"
+  },
+  "scripts": {
+    "test_some": "mocha --require babelhook --reporter spec --timeout 1000",
+    "test_browser": "gulp build:browser:tests && mocha-phantomjs --reporter spec browser_tests.html",
+    "test": "mocha --require babelhook --reporter spec --timeout 1000 test/both test/node",
+    "coverage": "babel-node ./node_modules/istanbul/lib/cli cover _mocha test/both test/node -- -u exports -R spec && open coverage/lcov-report/index.html",
+    "coveralls": "babel-node ./node_modules/istanbul/lib/cli cover _mocha test/both test/node --report lcovonly -- -R spec && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js ./lib && rm -rf ./coverage"
+  },
+  "main": "index.js",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/c58/marsdb-meteor/issues"
+  },
+  "directories": {
+    "examples": "examples",
+    "test": "test"
+  }
+}
