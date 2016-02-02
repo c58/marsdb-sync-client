@@ -1,5 +1,5 @@
 {
-  "name": "marsdb-meteor",
+  "name": "marsdb-sync-client",
   "version": "0.0.1",
   "author": "Artem Artemev <art@studytime.me>",
   "contributors": [
@@ -15,26 +15,28 @@
     "database",
     "meteor"
   ],
-  "homepage": "https://github.com/c58/marsdb-meteor",
+  "homepage": "https://github.com/c58/marsdb-sync-client",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/c58/marsdb-meteor.git"
+    "url": "git+ssh://git@github.com/c58/marsdb-sync-client.git"
   },
   "dependencies": {
-    "core-js": "^2.0.0",
     "invariant": "^2.2.0",
     "js-sha256": "^0.3.0",
-    "keymirror": "^0.1.1",
-    "marsdb": "^0.4.3"
+    "fast.js": "^0.1.1",
+    "marsdb": "^0.5.17",
+    "marsdb-sync-server": "^0.0.4"
   },
   "devDependencies": {
+    "core-js": "^2.0.0",
     "babel-cli": "^6.3.17",
     "babel-eslint": "^5.0.0-beta6",
     "babel-preset-es2015": "^6.3.13",
+    "babel-preset-stage-0": "^6.3.13",
     "babel-register": "^6.3.13",
     "babelify": "^7.2.0",
     "brfs": "^1.4.1",
-    "browserify": "^12.0.1",
+    "browserify": "^13.0.0",
     "bulk-require": "^0.2.1",
     "bulkify": "^1.1.1",
     "chai": "^3.4.1",
@@ -50,6 +52,8 @@
     "gulp-rename": "^1.2.2",
     "gulp-uglify": "^1.5.1",
     "istanbul": "^1.0.0-alpha.2",
+    "sinon": "^1.17.2",
+    "sinon-chai": "^2.8.0",
     "mocha": "^2.3.4",
     "mocha-lcov-reporter": "^1.0.0",
     "mocha-phantomjs": "^4.0.2",
@@ -68,7 +72,7 @@
   "main": "index.js",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/c58/marsdb-meteor/issues"
+    "url": "https://github.com/c58/marsdb-sync-client/issues"
   },
   "directories": {
     "examples": "examples",
