@@ -26,19 +26,6 @@ describe('DDPConnection', function () {
   });
   afterEach(function() {
     clock.restore();
-  })
-
-  describe('#constructor', function () {
-    it('should use default WebSocket and autoreconnect', function () {
-      if (typeof WebSocket === 'undefined') {
-        global.WebSocket = function() {};
-      }
-      const anotherConn = new DDPConnection({url: 'test'});
-      anotherConn._autoReconnect.should.be.true;
-      anotherConn._socket.should.not.be.undefined;
-      const withoutReconn = new DDPConnection({url: 'test', autoReconnect: false});
-      withoutReconn._autoReconnect.should.be.false;
-    });
   });
 
   describe('Senders', function () {

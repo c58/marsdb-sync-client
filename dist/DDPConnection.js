@@ -5,6 +5,7 @@ var _createClass = function () { function defineProperties(target, props) { for 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.CONN_STATUS = undefined;
 
 var _try2 = require('fast.js/function/try');
 
@@ -38,8 +39,10 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 // Status of a DDP connection
 var DDP_VERSION = 1;
+var HEARTBEAT_INTERVAL = 17500;
+var HEARTBEAT_TIMEOUT = 15000;
 var RECONNECT_INTERVAL = 5000;
-var CONN_STATUS = {
+var CONN_STATUS = exports.CONN_STATUS = {
   CONNECTING: 'CONNECTING',
   CONNECTED: 'CONNECTED',
   DISCONNECTED: 'DISCONNECTED'
@@ -48,20 +51,25 @@ var CONN_STATUS = {
 var DDPConnection = function (_AsyncEventEmitter) {
   _inherits(DDPConnection, _AsyncEventEmitter);
 
-  function DDPConnection(endPoint) {
-    var socket = arguments.length <= 1 || arguments[1] === undefined ? WebSocket : arguments[1];
+  function DDPConnection(_ref) {
+    var url = _ref.url;
+    var _ref$socket = _ref.socket;
+    var socket = _ref$socket === undefined ? WebSocket : _ref$socket;
+    var _ref$autoReconnect = _ref.autoReconnect;
+    var autoReconnect = _ref$autoReconnect === undefined ? true : _ref$autoReconnect;
 
     _classCallCheck(this, DDPConnection);
 
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(DDPConnection).call(this));
 
-    _this.endPoint = endPoint;
+    _this.url = url;
     _this._queue = new _PromiseQueue2.default(1);
-    _this._fullyConnectedOnce = false;
     _this._sessionId = null;
+    _this._autoReconnect = autoReconnect;
     _this._socket = socket;
+    _this._status = CONN_STATUS.DISCONNECTED;
 
-    _this._heartbeat = new _HeartbeatManager2.default();
+    _this._heartbeat = new _HeartbeatManager2.default(HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT);
     _this._heartbeat.on('timeout', (0, _bind3.default)(_this._handleHearbeatTimeout, _this));
     _this._heartbeat.on('sendPing', (0, _bind3.default)(_this.sendPing, _this));
     _this._heartbeat.on('sendPong', (0, _bind3.default)(_this.sendPong, _this));
@@ -69,9 +77,27 @@ var DDPConnection = function (_AsyncEventEmitter) {
     return _this;
   }
 
+  /**
+   * Returns true if client is fully connected to a server
+   * @return {Boolean}
+   */
+
   _createClass(DDPConnection, [{
     key: 'sendMethod',
-    value: function sendMethod(name, params, id, randomSeed) {
+
+    /**
+     * Sends a "method" message to the server with given
+     * parameters
+     * @param  {String} name
+     * @param  {String} params
+     * @param  {String} id
+     * @param  {String} randomSeed
+     */
+    value: function sendMethod(name) {
+      var params = arguments.length <= 1 || arguments[1] === undefined ? [] : arguments[1];
+      var id = arguments[2];
+      var randomSeed = arguments[3];
+
       var msg = {
         msg: 'method',
         id: id,
@@ -83,9 +109,21 @@ var DDPConnection = function (_AsyncEventEmitter) {
       }
       this._sendMessage(msg);
     }
+
+    /**
+     * Send "sub" message to the server with given
+     * publusher name and parameters
+     * @param  {String} name
+     * @param  {Array} params
+     * @param  {String} id
+     */
+
   }, {
     key: 'sendSub',
-    value: function sendSub(name, params, id) {
+    value: function sendSub(name) {
+      var params = arguments.length <= 1 || arguments[1] === undefined ? [] : arguments[1];
+      var id = arguments[2];
+
       this._sendMessage({
         msg: 'sub',
         id: id,
@@ -93,6 +131,13 @@ var DDPConnection = function (_AsyncEventEmitter) {
         params: params
       });
     }
+
+    /**
+     * Send "unsub" message to the server for given
+     * subscription id
+     * @param  {String} id
+     */
+
   }, {
     key: 'sendUnsub',
     value: function sendUnsub(id) {
@@ -101,6 +146,11 @@ var DDPConnection = function (_AsyncEventEmitter) {
         id: id
       });
     }
+
+    /**
+     * Send a "ping" message with randomly generated ping id
+     */
+
   }, {
     key: 'sendPing',
     value: function sendPing() {
@@ -109,6 +159,12 @@ var DDPConnection = function (_AsyncEventEmitter) {
         id: _marsdb.Random.default().id(20)
       });
     }
+
+    /**
+     * Sends a "pong" message for given id of ping message
+     * @param  {String} id
+     */
+
   }, {
     key: 'sendPong',
     value: function sendPong(id) {
@@ -117,25 +173,70 @@ var DDPConnection = function (_AsyncEventEmitter) {
         id: id
       });
     }
+
+    /**
+     * Make a new WebSocket connection to the server
+     * if we are not connected yet (isDicsonnected).
+     * Returns true if connecting, false if already connectiong
+     * @returns {Boolean}
+     */
+
   }, {
     key: 'connect',
     value: function connect() {
-      if (!this.isConnected) {
-        this._rawConn = new this._socket(this.endPoint);
+      if (this.isDisconnected) {
+        this._rawConn = new this._socket(this.url);
         this._rawConn.onopen = (0, _bind3.default)(this._handleOpen, this);
         this._rawConn.onerror = (0, _bind3.default)(this._handleError, this);
         this._rawConn.onclose = (0, _bind3.default)(this._handleClose, this);
         this._rawConn.onmessage = (0, _bind3.default)(this._handleRawMessage, this);
         this._setStatus(CONN_STATUS.CONNECTING);
+        return true;
       }
+      return false;
     }
+
+    /**
+     * Reconnect to the server with unlimited tries. A period
+     * of tries is 5 seconds. It reconnects only if not
+     * connected. It cancels previously scheduled `connect` by `reconnect`.
+     * Returns a function for canceling reconnection process or undefined
+     * if connection is not disconnected.
+     * @return {Function}
+     */
+
   }, {
     key: 'reconnect',
     value: function reconnect() {
-      clearTimeout(this._reconnTimer);
-      this._reconnecting = true;
-      this._setStatus(CONN_STATUS.DISCONNECTED);
-      this._reconnTimer = setTimeout((0, _bind3.default)(this.connect, this), RECONNECT_INTERVAL);
+      var _this2 = this;
+
+      if (this.isDisconnected) {
+        clearTimeout(this._reconnTimer);
+        this._reconnecting = true;
+        this._reconnTimer = setTimeout((0, _bind3.default)(this.connect, this), RECONNECT_INTERVAL);
+
+        return function () {
+          clearTimeout(_this2._reconnTimer);
+          _this2._reconnecting = false;
+          _this2.disconnect();
+        };
+      }
+    }
+
+    /**
+     * Close WebSocket connection. If autoReconnect is enabled
+     * (enabled by default), then after 5 sec reconnection will
+     * be initiated.
+     */
+
+  }, {
+    key: 'disconnect',
+    value: function disconnect() {
+      var _this3 = this;
+
+      (0, _try3.default)(function () {
+        return _this3._rawConn && _this3._rawConn.close();
+      });
     }
   }, {
     key: '_handleOpen',
@@ -154,7 +255,6 @@ var DDPConnection = function (_AsyncEventEmitter) {
       if (!this.isConnected) {
         this._setStatus(CONN_STATUS.CONNECTED, this._reconnecting);
         this._sessionId = msg.session;
-        this._fullyConnectedOnce = true;
         this._reconnecting = false;
       }
     }
@@ -162,12 +262,17 @@ var DDPConnection = function (_AsyncEventEmitter) {
     key: '_handleClose',
     value: function _handleClose() {
       this._heartbeat._clearTimers();
-      this.reconnect();
+      this._setStatus(CONN_STATUS.DISCONNECTED);
+
+      if (this._autoReconnect) {
+        this._reconnecting = false;
+        this.reconnect();
+      }
     }
   }, {
     key: '_handleHearbeatTimeout',
     value: function _handleHearbeatTimeout() {
-      this._rawConn.close();
+      this.disconnect();
     }
   }, {
     key: '_handleError',
@@ -177,15 +282,15 @@ var DDPConnection = function (_AsyncEventEmitter) {
   }, {
     key: '_handleRawMessage',
     value: function _handleRawMessage(rawMsg) {
-      var _this2 = this;
+      var _this4 = this;
 
       return this._queue.add(function () {
         var res = (0, _try3.default)(function () {
           var msgObj = _marsdb.EJSON.parse(rawMsg.data);
-          return _this2._processMessage(msgObj);
+          return _this4._processMessage(msgObj);
         });
         if (res instanceof Error) {
-          return _this2._handleError(res);
+          return _this4._handleError(res);
         }
         return res;
       });
@@ -194,7 +299,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
     key: '_processMessage',
     value: function _processMessage(msg) {
       switch (msg.msg) {
-        case 'conected':
+        case 'connected':
           return this._handleConnectedMessage(msg);
         case 'ping':
           return this._heartbeat.handlePing(msg);
@@ -216,10 +321,10 @@ var DDPConnection = function (_AsyncEventEmitter) {
   }, {
     key: '_sendMessage',
     value: function _sendMessage(msgObj) {
-      var _this3 = this;
+      var _this5 = this;
 
       var result = (0, _try3.default)(function () {
-        return _this3._rawConn.send(_marsdb.EJSON.stringify(msgObj));
+        return _this5._rawConn.send(_marsdb.EJSON.stringify(msgObj));
       });
       if (result instanceof Error) {
         this._handleError(result);
@@ -227,15 +332,25 @@ var DDPConnection = function (_AsyncEventEmitter) {
     }
   }, {
     key: '_setStatus',
-    value: function _setStatus(status, a, b, c) {
+    value: function _setStatus(status, a) {
       this._status = status;
-      console.log(this._status);
-      this.emit(('status:' + status).toLowerCase(), a, b, c);
+      this.emit(('status:' + status).toLowerCase(), a);
     }
   }, {
     key: 'isConnected',
     get: function get() {
       return this._status === CONN_STATUS.CONNECTED;
+    }
+
+    /**
+     * Returns true if client disconnected
+     * @return {Boolean}
+     */
+
+  }, {
+    key: 'isDisconnected',
+    get: function get() {
+      return this._status === CONN_STATUS.DISCONNECTED;
     }
   }]);
 

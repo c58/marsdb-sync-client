@@ -1,12 +1,14 @@
 'use strict';
 
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
-
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+
+var _bind2 = require('fast.js/function/bind');
+
+var _bind3 = _interopRequireDefault(_bind2);
 
 var _forEach = require('fast.js/forEach');
 
@@ -37,9 +39,9 @@ var MethodCallManager = function () {
     this.conn = connection;
     this._methods = {};
 
-    connection.on('status:disconnected', this._handleDisconnected.bind(this));
-    connection.on('message:result', this._handleMethodResult.bind(this));
-    connection.on('message:updated', this._handleMethodUpdated.bind(this));
+    connection.on('status:disconnected', (0, _bind3.default)(this._handleDisconnected, this));
+    connection.on('message:result', (0, _bind3.default)(this._handleMethodResult, this));
+    connection.on('message:updated', (0, _bind3.default)(this._handleMethodUpdated, this));
   }
 
   /**
@@ -70,12 +72,11 @@ var MethodCallManager = function () {
 
   }, {
     key: 'apply',
-    value: function apply(method, params, randomSeed) {
+    value: function apply(method) {
       var _this = this;
 
-      (0, _invariant2.default)(typeof method === 'string', 'Method name must be a string, but given type is %s', typeof method === 'undefined' ? 'undefined' : _typeof(method));
-
-      (0, _invariant2.default)(!params || Array.isArray(params), 'Params must be an array or undefined, but given type is %s', typeof params === 'undefined' ? 'undefined' : _typeof(params));
+      var params = arguments.length <= 1 || arguments[1] === undefined ? [] : arguments[1];
+      var randomSeed = arguments[2];
 
       var call = new _MethodCall2.default(method, params, randomSeed, this.conn);
       this._methods[call.id] = call;
@@ -93,7 +94,10 @@ var MethodCallManager = function () {
     key: '_handleMethodResult',
     value: function _handleMethodResult(msg) {
       if (msg.id && this._methods[msg.id]) {
-        this._methods[msg.id]._handleResultMessage(msg);
+        var result = msg.result;
+        var error = msg.error;
+
+        this._methods[msg.id]._handleResult(error, result);
       }
     }
   }, {
@@ -103,7 +107,7 @@ var MethodCallManager = function () {
 
       (0, _forEach2.default)(msg.methods, function (mid) {
         if (_this2._methods[mid]) {
-          _this2._methods[mid]._handleUpdatedMessage(msg);
+          _this2._methods[mid]._handleUpdated();
         }
       });
     }
@@ -111,8 +115,8 @@ var MethodCallManager = function () {
     key: '_handleDisconnected',
     value: function _handleDisconnected() {
       (0, _forEach2.default)(this._methods, function (methodCall) {
-        methodCall._handleResultMessage({
-          error: new Error('Disconnected, method can\'t be done')
+        methodCall._handleResult({
+          reason: 'Disconnected, method can\'t be done'
         });
       });
       this._methods = {};

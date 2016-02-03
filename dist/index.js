@@ -33,6 +33,10 @@ var _MethodCallManager = require('./MethodCallManager');
 
 var _MethodCallManager2 = _interopRequireDefault(_MethodCallManager);
 
+var _ErrorManager = require('./ErrorManager');
+
+var _ErrorManager2 = _interopRequireDefault(_ErrorManager);
+
 var _CollectionManager = require('./CollectionManager');
 
 var _CursorWithSub = require('./CursorWithSub');
@@ -73,9 +77,10 @@ function configure(_ref) {
 
   (0, _invariant2.default)(!_connection, 'configure(...): connection already configured');
 
-  _connection = new _DDPConnection2.default(url, socket);
+  _connection = new _DDPConnection2.default({ url: url, socket: socket });
   _connection.subManager = new _SubscriptionManager2.default(_connection);
   _connection.methodManager = new _MethodCallManager2.default(_connection);
+  _connection.errorManager = new _ErrorManager2.default(_connection);
   _connection.customManagers = (0, _map3.default)(managers, function (x) {
     return new x(_connection);
   });

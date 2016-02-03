@@ -5,14 +5,28 @@ var _createClass = function () { function defineProperties(target, props) { for 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.CALL_STATUS = undefined;
+
+var _bind2 = require('fast.js/function/bind');
+
+var _bind3 = _interopRequireDefault(_bind2);
 
 var _marsdb = require('marsdb');
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+// Method call statuses
+var CALL_STATUS = exports.CALL_STATUS = {
+  RESULT: 'RESULT',
+  ERROR: 'ERROR',
+  UPDATED: 'UPDATED'
+};
 
 /**
  * Class for tracking method call status.
@@ -26,65 +40,87 @@ var MethodCall = function (_EventEmitter) {
 
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(MethodCall).call(this));
 
-    _this.result = function () {
-      return _this._promiseMixed(new Promise(function (resolve, reject) {
-        if (_this._error) {
-          reject(_this._error);
-        } else if (_this._result) {
-          resolve(_this._result);
-        } else {
-          _this.once('result', resolve);
-          _this.once('error', reject);
-        }
-      }));
-    };
-
-    _this.updated = function () {
-      return _this._promiseMixed(new Promise(function (resolve, reject) {
-        if (_this._updated) {
-          resolve();
-        } else {
-          _this.once('updated', resolve);
-        }
-      }));
-    };
-
     _this.id = _marsdb.Random.default().id(20);
+    _this.result = (0, _bind3.default)(_this.result, _this);
+    _this.updated = (0, _bind3.default)(_this.updated, _this);
+
     connection.sendMethod(method, params, _this.id, randomSeed);
     return _this;
   }
 
+  /**
+   * Returns a promise that will be resolved when result
+   * of funciton call is received. It is also have "result"
+   * and "updated" fields for chaining
+   * @return {Promise}
+   */
+
   _createClass(MethodCall, [{
+    key: 'result',
+    value: function result() {
+      var _this2 = this;
+
+      return this._promiseMixed(new Promise(function (resolve, reject) {
+        if (_this2._error) {
+          reject(_this2._error);
+        } else if (_this2._result) {
+          resolve(_this2._result);
+        } else {
+          _this2.once(CALL_STATUS.RESULT, resolve);
+          _this2.once(CALL_STATUS.ERROR, reject);
+        }
+      }));
+    }
+
+    /**
+     * Returns a promise that will be resolved when updated
+     * message received for given funciton call. It is also
+     * have "result" and "updated" fields for chaining.
+     * @return {Promise}
+     */
+
+  }, {
+    key: 'updated',
+    value: function updated() {
+      var _this3 = this;
+
+      return this._promiseMixed(new Promise(function (resolve, reject) {
+        if (_this3._updated) {
+          resolve();
+        } else {
+          _this3.once(CALL_STATUS.UPDATED, resolve);
+        }
+      }));
+    }
+  }, {
     key: '_promiseMixed',
     value: function _promiseMixed(promise) {
-      var _this2 = this;
+      var _this4 = this;
 
       return {
         result: this.result,
         updated: this.updated,
         then: function then() {
-          return _this2._promiseMixed(promise.then.apply(promise, arguments));
+          return _this4._promiseMixed(promise.then.apply(promise, arguments));
         }
       };
     }
   }, {
-    key: '_handleResultMessage',
-    value: function _handleResultMessage(msg) {
-      if (msg.id == this.id) {
-        if (msg.error) {
-          this._error = msg.error;
-          this.emit('error', msg.error);
-        } else {
-          this._result = msg.result;
-          this.emit('result', msg.result);
-        }
+    key: '_handleResult',
+    value: function _handleResult(error, result) {
+      if (error) {
+        this._error = error;
+        this.emit(CALL_STATUS.ERROR, error);
+      } else {
+        this._result = result;
+        this.emit(CALL_STATUS.RESULT, result);
       }
     }
   }, {
-    key: '_handleUpdatedMessage',
-    value: function _handleUpdatedMessage(msg) {
+    key: '_handleUpdated',
+    value: function _handleUpdated(msg) {
       this._updated = true;
-      this.emit('updated');
+      this.emit(CALL_STATUS.UPDATED);
     }
   }]);
 

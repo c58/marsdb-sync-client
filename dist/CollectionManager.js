@@ -201,7 +201,14 @@ function createCollectionDelegate(connection) {
     }, {
       key: '_handleConnected',
       value: function _handleConnected(reconnected) {
-        // TODO sync all collections with backend
+        var _this5 = this;
+
+        var methodName = '/' + this.db.modelName + '/sync';
+        return this.db.ids().then(function (ids) {
+          return connection.methodManager.apply(methodName, [ids]).result();
+        }).then(function (removedIds) {
+          return _this5.db.remove({ _id: { $in: removedIds } }, { quiet: true });
+        });
       }
     }]);
 
