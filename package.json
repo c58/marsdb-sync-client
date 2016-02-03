@@ -24,7 +24,7 @@
     "invariant": "^2.2.0",
     "js-sha256": "^0.3.0",
     "fast.js": "^0.1.1",
-    "marsdb": "^0.5.17",
+    "marsdb": "^0.5.18",
     "marsdb-sync-server": "^0.0.4"
   },
   "devDependencies": {

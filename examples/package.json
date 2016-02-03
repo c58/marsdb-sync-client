@@ -16,7 +16,7 @@
     "ddp.js": "^1.1.0",
     "express": "^4.13.3",
     "history": "1.17.0",
-    "marsdb": "^0.5.17",
+    "marsdb": "^0.5.18",
     "marsdb-localforage": "^0.0.3",
     "marsdb-sync-server": "^0.0.4",
     "marsdb-sync-client": "file:../",
