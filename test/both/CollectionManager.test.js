@@ -16,7 +16,7 @@ describe('CollectionManager', function () {
       sendResult: sinon.spy(),
       sendUpdated: sinon.spy(),
       methodManager: { apply: sinon.spy(() => ({
-        result: () => Promise.resolve()
+        result: () => Promise.resolve([2])
       }))},
     };
     const managerClass = createCollectionDelegate(conn);
@@ -295,6 +295,21 @@ describe('CollectionManager', function () {
         return db.findOne(1);
       }).then((doc) => {
         expect(doc).to.be.undefined;
+      });
+    });
+  });
+
+  describe('#_handleConnected', function () {
+    it('should sync client side documents with server-side', function () {
+      return db.insertAll([{_id: 1, a: 1},{_id: 2, a: 1}], {quiet: true}).then(() => {
+        return manager._handleConnected();
+      }).then(() => {
+        return db.find();
+      }).then((docs) => {
+        conn.methodManager.apply.should.have.callCount(1);
+        conn.methodManager.apply.getCall(0).args.should.be.deep.equals(['/test/sync', [[1,2]]]);
+        docs.should.have.length(1);
+        docs[0].should.be.deep.equals({_id: 1, a: 1});
       });
     });
   });

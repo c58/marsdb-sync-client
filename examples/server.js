@@ -13,6 +13,11 @@ const APP_PORT = 3000;
 // Configure webpack compiler
 const compiler = webpack({
   entry: path.resolve(__dirname, 'js', 'app.js'),
+  resolve: {
+    alias: {
+      marsdb: path.resolve('./node_modules/marsdb'),
+    },
+  },
   module: {
     loaders: [
       {

@@ -1,8 +1,6 @@
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}(g.Mars || (g.Mars = {})).Meteor = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
 
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
-
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
@@ -12,9 +10,17 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.createCollectionDelegate = createCollectionDelegate;
 
+var _bind2 = require('fast.js/function/bind');
+
+var _bind3 = _interopRequireDefault(_bind2);
+
 var _forEach = require('fast.js/forEach');
 
 var _forEach2 = _interopRequireDefault(_forEach);
+
+var _keys2 = require('fast.js/object/keys');
+
+var _keys3 = _interopRequireDefault(_keys2);
 
 var _marsdb = require('marsdb');
 
@@ -51,10 +57,10 @@ function createCollectionDelegate(connection) {
 
       var _this = _possibleConstructorReturn(this, (_Object$getPrototypeO = Object.getPrototypeOf(CollectionManager)).call.apply(_Object$getPrototypeO, [this].concat(args)));
 
-      connection.on('status:connected', _this._handleConnected.bind(_this));
-      connection.on('message:added', _this._handleRemoteAdded.bind(_this));
-      connection.on('message:changed', _this._handleRemoteChanged.bind(_this));
-      connection.on('message:removed', _this._handleRemoteRemoved.bind(_this));
+      connection.on('status:connected', (0, _bind3.default)(_this._handleConnected, _this));
+      connection.on('message:added', (0, _bind3.default)(_this._handleRemoteAdded, _this));
+      connection.on('message:changed', (0, _bind3.default)(_this._handleRemoteChanged, _this));
+      connection.on('message:removed', (0, _bind3.default)(_this._handleRemoteRemoved, _this));
       return _this;
     }
 
@@ -70,13 +76,15 @@ function createCollectionDelegate(connection) {
 
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/insert';
-          connection.methodManager.apply(methodName, [doc, options], randomId.seed).result().then(null, function (e) {
+          var handleInsertError = function handleInsertError(e) {
             return localInsert.then(function () {
               return _this2.db.remove(doc._id, { quiet: true });
             }).then(function () {
               throw e;
             });
-          });
+          };
+
+          connection.methodManager.apply(methodName, [doc, options], randomId.seed).result().then(null, handleInsertError);
         }
 
         return localInsert;
@@ -92,13 +100,15 @@ function createCollectionDelegate(connection) {
 
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/remove';
-          connection.methodManager.apply(methodName, [query, options]).result().then(null, function (e) {
+          var handleRemoveError = function handleRemoveError(e) {
             return localRemove.then(function (removedDocs) {
               return _this3.db.insertAll(removedDocs, { quiet: true });
             }).then(function () {
               throw e;
             });
-          });
+          };
+
+          connection.methodManager.apply(methodName, [query, options]).result().then(null, handleRemoveError);
         }
 
         return localRemove;
@@ -114,15 +124,23 @@ function createCollectionDelegate(connection) {
 
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/update';
-          connection.methodManager.apply(methodName, [query, modifier, options]).result().then(null, function (e) {
+          var handleUpdateError = function handleUpdateError(e) {
             return localUpdate.then(function (res) {
-              return _this4.db.insertAll(res.original.filter(function (d) {
-                return d;
-              }), { quiet: true });
+              if (res.inserted) {
+                _this4.db.remove(res.inserted._id, { quiet: true });
+              } else {
+                (0, _forEach2.default)(res.original, function (d) {
+                  var docId = d._id;
+                  delete d._id;
+                  _this4.db.update({ _id: docId }, d, { quiet: true, upsert: true });
+                });
+              }
             }).then(function () {
               throw e;
             });
-          });
+          };
+
+          connection.methodManager.apply(methodName, [query, modifier, options]).result().then(null, handleUpdateError);
         }
 
         return localUpdate;
@@ -130,16 +148,8 @@ function createCollectionDelegate(connection) {
     }, {
       key: '_handleRemoteAdded',
       value: function _handleRemoteAdded(msg) {
-        var _this5 = this;
-
-        this.db.ids(msg.id).then(function (ids) {
-          if (ids.length) {
-            return _this5.db.update(msg.id, msg.fields, { quiet: true });
-          } else {
-            var doc = _extends({ id: msg.id }, msg.fields);
-            return _this5.db.insert(doc, { quiet: true });
-          }
-        });
+        delete msg.fields._id;
+        return this.db.update({ _id: msg.id }, msg.fields, { quiet: true, upsert: true });
       }
     }, {
       key: '_handleRemoteChanged',
@@ -173,13 +183,16 @@ function createCollectionDelegate(connection) {
           }
         }
         if (msg.fields) {
+          delete msg.fields._id;
           modifier.$set = {};
           (0, _forEach2.default)(msg.fields, function (v, k) {
             modifier.$set[k] = v;
           });
         }
 
-        return this.db.update(msg.id, modifier, { quiet: true });
+        if ((0, _keys3.default)(modifier).length > 0) {
+          return this.db.update(msg.id, modifier, { quiet: true });
+        }
       }
     }, {
       key: '_handleRemoteRemoved',
@@ -198,7 +211,7 @@ function createCollectionDelegate(connection) {
 
   return CollectionManager;
 }
-},{"fast.js/forEach":12,"marsdb":undefined}],2:[function(require,module,exports){
+},{"fast.js/forEach":14,"fast.js/function/bind":17,"fast.js/object/keys":22,"marsdb":undefined}],2:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -232,9 +245,15 @@ function createCursorWithSub(connection) {
     _inherits(CursorWithSub, _currentCursorClass2);
 
     function CursorWithSub() {
+      var _Object$getPrototypeO;
+
       _classCallCheck(this, CursorWithSub);
 
-      return _possibleConstructorReturn(this, Object.getPrototypeOf(CursorWithSub).apply(this, arguments));
+      for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
+        args[_key] = arguments[_key];
+      }
+
+      return _possibleConstructorReturn(this, (_Object$getPrototypeO = Object.getPrototypeOf(CursorWithSub)).call.apply(_Object$getPrototypeO, [this].concat(args)));
     }
 
     _createClass(CursorWithSub, [{
@@ -242,8 +261,8 @@ function createCursorWithSub(connection) {
       value: function _doUpdate() {
         var _this2 = this;
 
-        for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
-          args[_key] = arguments[_key];
+        for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+          args[_key2] = arguments[_key2];
         }
 
         var sub = this.options.sub;
@@ -350,8 +369,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
 
   _createClass(DDPConnection, [{
     key: 'sendMethod',
-    value: function sendMethod(name, params, randomSeed) {
-      var id = _marsdb.Random.default().id(20);
+    value: function sendMethod(name, params, id, randomSeed) {
       var msg = {
         msg: 'method',
         id: id,
@@ -362,19 +380,16 @@ var DDPConnection = function (_AsyncEventEmitter) {
         msg.randomSeed = randomSeed;
       }
       this._sendMessage(msg);
-      return id;
     }
   }, {
     key: 'sendSub',
-    value: function sendSub(name, params) {
-      var id = _marsdb.Random.default().id(20);
+    value: function sendSub(name, params, id) {
       this._sendMessage({
         msg: 'sub',
         id: id,
         name: name,
         params: params
       });
-      return id;
     }
   }, {
     key: 'sendUnsub',
@@ -383,17 +398,14 @@ var DDPConnection = function (_AsyncEventEmitter) {
         msg: 'unsub',
         id: id
       });
-      return id;
     }
   }, {
     key: 'sendPing',
     value: function sendPing() {
-      var id = _marsdb.Random.default().id(20);
       this._sendMessage({
         msg: 'ping',
-        id: id
+        id: _marsdb.Random.default().id(20)
       });
-      return id;
     }
   }, {
     key: 'sendPong',
@@ -467,7 +479,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
 
       return this._queue.add(function () {
         var res = (0, _try3.default)(function () {
-          var msgObj = _marsdb.EJSON.parse(rawMsg);
+          var msgObj = _marsdb.EJSON.parse(rawMsg.data);
           return _this2._processMessage(msgObj);
         });
         if (res instanceof Error) {
@@ -515,6 +527,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
     key: '_setStatus',
     value: function _setStatus(status, a, b, c) {
       this._status = status;
+      console.log(this._status);
       this.emit(('status:' + status).toLowerCase(), a, b, c);
     }
   }, {
@@ -528,10 +541,8 @@ var DDPConnection = function (_AsyncEventEmitter) {
 }(_AsyncEventEmitter3.default);
 
 exports.default = DDPConnection;
-},{"fast.js/function/bind":15,"fast.js/function/try":17,"marsdb":undefined,"marsdb-sync-server/dist/HeartbeatManager":22,"marsdb/dist/AsyncEventEmitter":23,"marsdb/dist/PromiseQueue":24}],4:[function(require,module,exports){
+},{"fast.js/function/bind":17,"fast.js/function/try":19,"marsdb":undefined,"marsdb-sync-server/dist/HeartbeatManager":25,"marsdb/dist/AsyncEventEmitter":26,"marsdb/dist/PromiseQueue":27}],4:[function(require,module,exports){
 'use strict';
-
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
@@ -539,17 +550,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _forEach = require('fast.js/forEach');
-
-var _forEach2 = _interopRequireDefault(_forEach);
-
 var _marsdb = require('marsdb');
-
-var _invariant = require('invariant');
-
-var _invariant2 = _interopRequireDefault(_invariant);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -569,50 +570,56 @@ var MethodCall = function (_EventEmitter) {
 
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(MethodCall).call(this));
 
-    _this.id = connection.sendMethod(method, params, randomSeed);
+    _this.result = function () {
+      return _this._promiseMixed(new Promise(function (resolve, reject) {
+        if (_this._error) {
+          reject(_this._error);
+        } else if (_this._result) {
+          resolve(_this._result);
+        } else {
+          _this.once('result', resolve);
+          _this.once('error', reject);
+        }
+      }));
+    };
+
+    _this.updated = function () {
+      return _this._promiseMixed(new Promise(function (resolve, reject) {
+        if (_this._updated) {
+          resolve();
+        } else {
+          _this.once('updated', resolve);
+        }
+      }));
+    };
+
+    _this.id = _marsdb.Random.default().id(20);
+    connection.sendMethod(method, params, _this.id, randomSeed);
     return _this;
   }
 
   _createClass(MethodCall, [{
-    key: 'result',
-    value: function result() {
-      var _this2 = this;
-
-      return this._promiseMixed(new Promise(function (resolve, reject) {
-        _this2.once('result', resolve);
-        _this2.once('error', reject);
-      }));
-    }
-  }, {
-    key: 'updated',
-    value: function updated() {
-      var _this3 = this;
-
-      return this._promiseMixed(new Promise(function (resolve, reject) {
-        _this3.once('updated', resolve);
-      }));
-    }
-  }, {
     key: '_promiseMixed',
     value: function _promiseMixed(promise) {
-      var _this4 = this;
+      var _this2 = this;
 
       return {
-        result: this.result.bind(this),
-        updated: this.updated.bind(this),
+        result: this.result,
+        updated: this.updated,
         then: function then() {
-          return _this4._promiseMixed(promise.then.apply(promise, arguments));
+          return _this2._promiseMixed(promise.then.apply(promise, arguments));
         }
       };
     }
   }, {
     key: '_handleResultMessage',
     value: function _handleResultMessage(msg) {
-      this._result = true;
       if (msg.id == this.id) {
         if (msg.error) {
+          this._error = msg.error;
           this.emit('error', msg.error);
         } else {
+          this._result = msg.result;
           this.emit('result', msg.result);
         }
       }
@@ -627,6 +634,34 @@ var MethodCall = function (_EventEmitter) {
 
   return MethodCall;
 }(_marsdb.EventEmitter);
+
+exports.default = MethodCall;
+},{"marsdb":undefined}],5:[function(require,module,exports){
+'use strict';
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _forEach = require('fast.js/forEach');
+
+var _forEach2 = _interopRequireDefault(_forEach);
+
+var _invariant = require('invariant');
+
+var _invariant2 = _interopRequireDefault(_invariant);
+
+var _MethodCall = require('./MethodCall');
+
+var _MethodCall2 = _interopRequireDefault(_MethodCall);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 /**
  * Make an RPC calls and track results.
@@ -675,18 +710,18 @@ var MethodCallManager = function () {
   }, {
     key: 'apply',
     value: function apply(method, params, randomSeed) {
-      var _this5 = this;
+      var _this = this;
 
       (0, _invariant2.default)(typeof method === 'string', 'Method name must be a string, but given type is %s', typeof method === 'undefined' ? 'undefined' : _typeof(method));
 
       (0, _invariant2.default)(!params || Array.isArray(params), 'Params must be an array or undefined, but given type is %s', typeof params === 'undefined' ? 'undefined' : _typeof(params));
 
-      var call = new MethodCall(method, params, randomSeed, this.conn);
+      var call = new _MethodCall2.default(method, params, randomSeed, this.conn);
       this._methods[call.id] = call;
 
       var cleanupCallback = function cleanupCallback() {
-        if (_this5._methods[call.id] && _this5._methods[call.id]._result && _this5._methods[call.id]._updated) {
-          delete _this5._methods[call.id];
+        if (_this._methods[call.id] && _this._methods[call.id]._result && _this._methods[call.id]._updated) {
+          delete _this._methods[call.id];
         }
       };
       call.result().then(cleanupCallback).updated().then(cleanupCallback);
@@ -703,11 +738,11 @@ var MethodCallManager = function () {
   }, {
     key: '_handleMethodUpdated',
     value: function _handleMethodUpdated(msg) {
-      var _this6 = this;
+      var _this2 = this;
 
       (0, _forEach2.default)(msg.methods, function (mid) {
-        if (_this6._methods[mid]) {
-          _this6._methods[mid]._handleUpdatedMessage(msg);
+        if (_this2._methods[mid]) {
+          _this2._methods[mid]._handleUpdatedMessage(msg);
         }
       });
     }
@@ -727,7 +762,7 @@ var MethodCallManager = function () {
 }();
 
 exports.default = MethodCallManager;
-},{"fast.js/forEach":12,"invariant":21,"marsdb":undefined}],5:[function(require,module,exports){
+},{"./MethodCall":4,"fast.js/forEach":14,"invariant":24}],6:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -737,13 +772,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.SUB_STATUS = undefined;
 
-var _forEach = require('fast.js/forEach');
-
-var _forEach2 = _interopRequireDefault(_forEach);
-
 var _marsdb = require('marsdb');
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -751,14 +780,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-// Utils
-function _getArgumentsHash() {
-  var args = Array.prototype.slice.call(arguments);
-  return JSON.stringify(args);
-}
-
 // Status of the subsctiption
-var STOP_PENDING_TIMEOUT = 15000;
 var SUB_STATUS = exports.SUB_STATUS = {
   READY_PENDING: 'READY_PENDING',
   READY: 'READY',
@@ -776,60 +798,45 @@ var SUB_STATUS = exports.SUB_STATUS = {
 var Subscription = function (_EventEmitter) {
   _inherits(Subscription, _EventEmitter);
 
-  function Subscription(name, params, hash, conn) {
+  function Subscription(name, params, conn) {
+    var stopWaitTimeout = arguments.length <= 3 || arguments[3] === undefined ? 15000 : arguments[3];
+
     _classCallCheck(this, Subscription);
 
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(Subscription).call(this));
 
+    _this.ready = function () {
+      return _this._promiseMixed(new Promise(function (resolve, reject) {
+        if (_this.isReady) {
+          resolve();
+        } else {
+          _this.once(SUB_STATUS.READY, resolve);
+          _this.once(SUB_STATUS.ERROR, reject);
+        }
+      }));
+    };
+
+    _this.stopped = function () {
+      return _this._promiseMixed(new Promise(function (resolve, reject) {
+        if (_this.isStopped) {
+          resolve();
+        } else {
+          _this.once(SUB_STATUS.STOPPED, resolve);
+          _this.once(SUB_STATUS.ERROR, reject);
+        }
+      }));
+    };
+
+    _this.id = _marsdb.Random.default().id(20);
     _this.name = name;
     _this.params = params;
-    _this.hash = hash;
-    _this.id = hash;
-    _this.conn = conn;
+    _this._conn = conn;
     _this._ready = false;
+    _this._stopWaitTimeout = stopWaitTimeout;
     return _this;
   }
 
   _createClass(Subscription, [{
-    key: 'ready',
-    value: function ready() {
-      var _this2 = this;
-
-      return this._promiseMixed(new Promise(function (resolve, reject) {
-        if (_this2.isReady) {
-          resolve();
-        } else {
-          _this2.once(SUB_STATUS.READY, resolve);
-        }
-      }));
-    }
-  }, {
-    key: 'stopped',
-    value: function stopped() {
-      var _this3 = this;
-
-      return this._promiseMixed(new Promise(function (resolve, reject) {
-        if (_this3.isStopped) {
-          resolve();
-        } else {
-          _this3.once(SUB_STATUS.STOPPED, resolve);
-        }
-      }));
-    }
-  }, {
-    key: 'faulted',
-    value: function faulted() {
-      var _this4 = this;
-
-      return this._promiseMixed(new Promise(function (resolve, reject) {
-        if (_this4.isFaulted) {
-          resolve();
-        } else {
-          _this4.once(SUB_STATUS.ERROR, resolve);
-        }
-      }));
-    }
-  }, {
     key: 'stop',
     value: function stop() {
       this._scheduleStop();
@@ -837,21 +844,20 @@ var Subscription = function (_EventEmitter) {
   }, {
     key: '_promiseMixed',
     value: function _promiseMixed(promise) {
-      var _this5 = this;
+      var _this2 = this;
 
       return {
-        stopped: this.stopped.bind(this),
-        ready: this.ready.bind(this),
-        faulted: this.faulted.bind(this),
+        stopped: this.stopped,
+        ready: this.ready,
         then: function then() {
-          return _this5._promiseMixed(promise.then.apply(promise, arguments));
+          return _this2._promiseMixed(promise.then.apply(promise, arguments));
         }
       };
     }
   }, {
     key: '_subscribe',
-    value: function _subscribe(options) {
-      if (!this.status || this.status === SUB_STATUS.STOP_PENDING || this.status === SUB_STATUS.ERROR || this.status === SUB_STATUS.FROZEN) {
+    value: function _subscribe() {
+      if (!this.status || this.status === SUB_STATUS.STOP_PENDING || this.status === SUB_STATUS.STOPPED || this.status === SUB_STATUS.ERROR || this.status === SUB_STATUS.FROZEN) {
         if (this.status === SUB_STATUS.STOP_PENDING) {
           if (this._ready) {
             this._clearStopper();
@@ -859,23 +865,22 @@ var Subscription = function (_EventEmitter) {
           } else {
             this._setStatus(SUB_STATUS.READY_PENDING);
           }
-        } else if (!options || !options.dontSubFrozen || this.status !== SUB_STATUS.FROZEN) {
+        } else {
           this._setStatus(SUB_STATUS.READY_PENDING);
-          this.id = this.conn.sendSub(this.name, this.params);
+          this._conn.sendSub(this.name, this.params, this.id);
         }
       }
-      return this.id;
     }
   }, {
     key: '_scheduleStop',
     value: function _scheduleStop() {
-      var _this6 = this;
+      var _this3 = this;
 
-      if ((this.status === SUB_STATUS.READY_PENDING || this.status === SUB_STATUS.READY) && this.status !== SUB_STATUS.STOP_PENDING) {
+      if (this.status !== SUB_STATUS.STOP_PENDING && this.status !== SUB_STATUS.STOPPED) {
         this._setStatus(SUB_STATUS.STOP_PENDING);
         this._stopTimer = setTimeout(function () {
-          return _this6._stopImmediately();
-        }, STOP_PENDING_TIMEOUT);
+          return _this3._stopImmediately();
+        }, this._stopWaitTimeout);
       }
     }
   }, {
@@ -884,9 +889,10 @@ var Subscription = function (_EventEmitter) {
       if (this.status !== SUB_STATUS.STOPPED) {
         this._clearStopper();
         this._setStatus(SUB_STATUS.STOPPED);
+        this._ready = false;
 
         if (!options || !options.dontSendMsg) {
-          this.conn.sendUnsub(this.id);
+          this._conn.sendUnsub(this.id);
         }
       }
     }
@@ -897,24 +903,6 @@ var Subscription = function (_EventEmitter) {
         this._stopImmediately({ dontSendMsg: true });
       } else if (!this.status || this.status !== SUB_STATUS.STOPPED) {
         this._setStatus(SUB_STATUS.FROZEN);
-      }
-    }
-  }, {
-    key: '_handleNosubMessage',
-    value: function _handleNosubMessage(msg) {
-      this._clearStopper();
-      if (msg.error) {
-        this._setStatus(SUB_STATUS.ERROR, msg.error);
-      } else {
-        this._stopImmediately({ dontSendMsg: true });
-      }
-    }
-  }, {
-    key: '_handleReadyMessage',
-    value: function _handleReadyMessage(msg) {
-      this._ready = true;
-      if (this.status !== SUB_STATUS.STOPPED && this.status !== SUB_STATUS.STOP_PENDING) {
-        this._setStatus(SUB_STATUS.READY);
       }
     }
   }, {
@@ -930,14 +918,42 @@ var Subscription = function (_EventEmitter) {
       this._stopTimer = null;
     }
   }, {
+    key: '_handleNosub',
+    value: function _handleNosub(error) {
+      this._clearStopper();
+      if (error) {
+        this._setStatus(SUB_STATUS.ERROR, error);
+      } else {
+        this._stopImmediately({ dontSendMsg: true });
+      }
+    }
+  }, {
+    key: '_handleReady',
+    value: function _handleReady() {
+      if (this.status !== SUB_STATUS.STOPPED && this.status !== SUB_STATUS.STOP_PENDING) {
+        this._ready = true;
+        this._setStatus(SUB_STATUS.READY);
+      }
+    }
+  }, {
     key: 'isReady',
     get: function get() {
       return this.status == SUB_STATUS.READY || this.status === SUB_STATUS.FROZEN && this._ready;
     }
   }, {
+    key: 'isReadyPending',
+    get: function get() {
+      return this.status === SUB_STATUS.READY_PENDING;
+    }
+  }, {
     key: 'isStopped',
     get: function get() {
       return this.status === SUB_STATUS.STOPPED;
+    }
+  }, {
+    key: 'isStopPending',
+    get: function get() {
+      return this.status === SUB_STATUS.STOP_PENDING;
     }
   }, {
     key: 'isFaulted',
@@ -954,141 +970,199 @@ var Subscription = function (_EventEmitter) {
   return Subscription;
 }(_marsdb.EventEmitter);
 
+exports.default = Subscription;
+},{"marsdb":undefined}],7:[function(require,module,exports){
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _bind2 = require('fast.js/function/bind');
+
+var _bind3 = _interopRequireDefault(_bind2);
+
+var _forEach = require('fast.js/forEach');
+
+var _forEach2 = _interopRequireDefault(_forEach);
+
+var _marsdb = require('marsdb');
+
+var _Subscription = require('./Subscription');
+
+var _Subscription2 = _interopRequireDefault(_Subscription);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+// Internals
+var STOP_SUB_DELAY = 15000;
+
 /**
  * The manager tracks all subscriptions on the application
  * and make reaction on some life-cycle events, like stop
  * subscription.
  */
 
-var SubscriptionManager = function (_EventEmitter2) {
-  _inherits(SubscriptionManager, _EventEmitter2);
-
-  // @ngInject
+var SubscriptionManager = function (_EventEmitter) {
+  _inherits(SubscriptionManager, _EventEmitter);
 
   function SubscriptionManager(connection) {
     _classCallCheck(this, SubscriptionManager);
 
-    var _this7 = _possibleConstructorReturn(this, Object.getPrototypeOf(SubscriptionManager).call(this));
+    var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(SubscriptionManager).call(this));
 
-    _this7.subscriptionsByHash = {};
-    _this7.subscriptionsById = {};
-    _this7.loadingSet = new Set();
-    _this7.conn = connection;
+    _this._subs = {};
+    _this._loading = new Set();
+    _this._conn = connection;
 
-    connection.on('status:connected', _this7._handleConnected.bind(_this7));
-    connection.on('status:disconnected', _this7._handleDisconnected.bind(_this7));
-    connection.on('message:ready', _this7._handleSubscriptionReady.bind(_this7));
-    connection.on('message:nosub', _this7._handleSubscriptionNosub.bind(_this7));
-    return _this7;
+    connection.on('status:connected', (0, _bind3.default)(_this._handleConnected, _this));
+    connection.on('status:disconnected', (0, _bind3.default)(_this._handleDisconnected, _this));
+    connection.on('message:ready', (0, _bind3.default)(_this._handleSubscriptionReady, _this));
+    connection.on('message:nosub', (0, _bind3.default)(_this._handleSubscriptionNosub, _this));
+    return _this;
   }
+
+  /**
+   * Subscribe to publisher by given name with params.
+   * Return Subscription object with stop, ready, and stopped
+   * methods.
+   * @param  {String}    name
+   * @param  {...Mixed}  params
+   * @return {Subscription}
+   */
 
   _createClass(SubscriptionManager, [{
     key: 'subscribe',
     value: function subscribe(name) {
+      var _this2 = this;
+
       for (var _len = arguments.length, params = Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
         params[_key - 1] = arguments[_key];
       }
 
-      var subHash = _getArgumentsHash.apply(null, arguments);
-      var sub = this.subscriptionsByHash[subHash];
+      // Create and register subscription
+      var sub = new _Subscription2.default(name, params, this._conn, STOP_SUB_DELAY);
+      this._subs[sub.id] = sub;
+      this._trackLoadingStart(sub.id);
 
-      if (!sub) {
-        sub = new Subscription(name, params, subHash, this.conn);
-        if (this.conn.isConnected) {
-          sub._subscribe();
-        } else {
-          sub._freeze();
-        }
-        this._registerSub(sub);
+      // Remove sub from manager on stop or error
+      var cleanupCallback = function cleanupCallback() {
+        delete _this2._subs[sub.id];
+        _this2._trackLoadingReady(sub.id);
+      };
+      sub.once(_Subscription.SUB_STATUS.STOPPED, cleanupCallback);
+      sub.once(_Subscription.SUB_STATUS.ERROR, cleanupCallback);
+
+      // Start subscription
+      if (this._conn.isConnected) {
+        sub._subscribe();
       } else {
-        sub._subscribe({ dontSubFrozen: true });
-      }
-
-      if (!sub.isReady) {
-        this._trackLoadingStart(sub.id);
+        sub._freeze();
       }
 
       return sub;
     }
+
+    /**
+     * Given callback invoked anytime when all
+     * subscriptions is ready. Return a function for
+     * stop watching the event.
+     * @return {Function}
+     */
+
   }, {
-    key: '_registerSub',
-    value: function _registerSub(sub) {
-      var _this8 = this;
+    key: 'addReadyListener',
+    value: function addReadyListener(cb) {
+      var _this3 = this;
 
-      this.subscriptionsByHash[sub.hash] = sub;
-      this.subscriptionsById[sub.id] = sub;
-
-      var cleanupCallback = function cleanupCallback() {
-        delete _this8.subscriptionsByHash[sub.hash];
-        delete _this8.subscriptionsById[sub.id];
-        _this8._trackLoadingReady(sub.id);
+      this.on('ready', cb);
+      return function () {
+        return _this3.removeListener('ready', cb);
       };
+    }
 
-      sub.stopped().then(cleanupCallback).faulted().then(cleanupCallback);
+    /**
+     * Given callback invoked when first subscription started.
+     * It is not invoked for any other new subs if some sub
+     * is loading.
+     * @return {Function}
+     */
+
+  }, {
+    key: 'addLoadingListener',
+    value: function addLoadingListener(cb) {
+      var _this4 = this;
+
+      this.on('loading', cb);
+      return function () {
+        return _this4.removeListener('loading', cb);
+      };
     }
   }, {
     key: '_handleConnected',
-    value: function _handleConnected(reconnected) {
-      var _this9 = this;
-
-      (0, _forEach2.default)(this.subscriptionsById, function (sub, sid) {
-        var newId = sub._subscribe();
-        if (newId !== sid) {
-          _this9._trackLoadingReady(sid);
-          _this9._trackLoadingStart(newId);
-          delete _this9.subscriptionsById[sid];
-          _this9.subscriptionsById[newId] = sub;
-        }
+    value: function _handleConnected() {
+      (0, _forEach2.default)(this._subs, function (sub) {
+        return sub._subscribe();
       });
     }
   }, {
     key: '_handleDisconnected',
     value: function _handleDisconnected() {
-      var _this10 = this;
+      var _this5 = this;
 
-      (0, _forEach2.default)(this.subscriptionsById, function (sub, sid) {
+      (0, _forEach2.default)(this._subs, function (sub, sid) {
         sub._freeze();
         if (sub.isFrozen) {
-          _this10._trackLoadingStart(sid);
+          _this5._trackLoadingStart(sid);
+        } else {
+          _this5._trackLoadingReady(sid);
         }
       });
     }
   }, {
     key: '_handleSubscriptionReady',
     value: function _handleSubscriptionReady(msg) {
-      var _this11 = this;
+      var _this6 = this;
 
       (0, _forEach2.default)(msg.subs, function (sid) {
-        var sub = _this11.subscriptionsById[sid];
+        var sub = _this6._subs[sid];
         if (sub) {
-          sub._handleReadyMessage(msg);
-          _this11._trackLoadingReady(sid);
+          sub._handleReady();
+          _this6._trackLoadingReady(sid);
         }
       });
     }
   }, {
     key: '_handleSubscriptionNosub',
     value: function _handleSubscriptionNosub(msg) {
-      var sub = this.subscriptionsById[msg.id];
-      if (msg.id && sub) {
-        sub._handleNosubMessage(msg);
+      var sub = this._subs[msg.id];
+      if (sub) {
+        sub._handleNosub(msg.error);
       }
     }
   }, {
     key: '_trackLoadingStart',
     value: function _trackLoadingStart(subId) {
-      var prevSize = this.loadingSet.size;
-      this.loadingSet.add(subId);
-      if (prevSize === 0 && this.loadingSet.size > 0) {
+      var prevSize = this._loading.size;
+      this._loading.add(subId);
+      if (prevSize === 0 && this._loading.size > 0) {
         this.emit('loading');
       }
     }
   }, {
     key: '_trackLoadingReady',
     value: function _trackLoadingReady(subId) {
-      var prevSize = this.loadingSet.size;
-      this.loadingSet.delete(subId);
-      if (prevSize > 0 && this.loadingSet.size === 0) {
+      var prevSize = this._loading.size;
+      this._loading.delete(subId);
+      if (prevSize > 0 && this._loading.size === 0) {
         this.emit('ready');
       }
     }
@@ -1098,7 +1172,7 @@ var SubscriptionManager = function (_EventEmitter2) {
 }(_marsdb.EventEmitter);
 
 exports.default = SubscriptionManager;
-},{"fast.js/forEach":12,"marsdb":undefined}],6:[function(require,module,exports){
+},{"./Subscription":6,"fast.js/forEach":14,"fast.js/function/bind":17,"marsdb":undefined}],8:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1184,7 +1258,7 @@ function configure(_ref) {
   _marsdb2.default.defaultCursor((0, _CursorWithSub.createCursorWithSub)(_connection));
   return _connection;
 }
-},{"./CollectionManager":1,"./CursorWithSub":2,"./DDPConnection":3,"./MethodCallManager":4,"./SubscriptionManager":5,"fast.js/map":18,"invariant":21,"marsdb":undefined}],7:[function(require,module,exports){
+},{"./CollectionManager":1,"./CursorWithSub":2,"./DDPConnection":3,"./MethodCallManager":5,"./SubscriptionManager":7,"fast.js/map":20,"invariant":24,"marsdb":undefined}],9:[function(require,module,exports){
 const client = require('./dist');
 module.exports = {
   configure: client.configure,
@@ -1193,7 +1267,7 @@ module.exports = {
   subscribe: client.subsctibe,
 };
 
-},{"./dist":6}],8:[function(require,module,exports){
+},{"./dist":8}],10:[function(require,module,exports){
 /**
  * Copyright (c) 2013 Petka Antonov
  * 
@@ -1482,7 +1556,7 @@ function getCapacity(capacity) {
 
 module.exports = Deque;
 
-},{}],9:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 'use strict';
 
 //
@@ -1746,7 +1820,7 @@ if ('undefined' !== typeof module) {
   module.exports = EventEmitter;
 }
 
-},{}],10:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 'use strict';
 
 var bindInternal3 = require('../function/bindInternal3');
@@ -1769,7 +1843,7 @@ module.exports = function fastForEach (subject, fn, thisContext) {
   }
 };
 
-},{"../function/bindInternal3":16}],11:[function(require,module,exports){
+},{"../function/bindInternal3":18}],13:[function(require,module,exports){
 'use strict';
 
 var bindInternal3 = require('../function/bindInternal3');
@@ -1795,7 +1869,7 @@ module.exports = function fastMap (subject, fn, thisContext) {
   return result;
 };
 
-},{"../function/bindInternal3":16}],12:[function(require,module,exports){
+},{"../function/bindInternal3":18}],14:[function(require,module,exports){
 'use strict';
 
 var forEachArray = require('./array/forEach'),
@@ -1818,7 +1892,7 @@ module.exports = function fastForEach (subject, fn, thisContext) {
     return forEachObject(subject, fn, thisContext);
   }
 };
-},{"./array/forEach":10,"./object/forEach":19}],13:[function(require,module,exports){
+},{"./array/forEach":12,"./object/forEach":21}],15:[function(require,module,exports){
 'use strict';
 
 /**
@@ -1849,7 +1923,7 @@ module.exports = function applyNoContext (subject, args) {
   }
 };
 
-},{}],14:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 'use strict';
 
 /**
@@ -1880,7 +1954,7 @@ module.exports = function applyWithContext (subject, thisContext, args) {
   }
 };
 
-},{}],15:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 'use strict';
 
 var applyWithContext = require('./applyWithContext');
@@ -1953,7 +2027,7 @@ module.exports = function fastBind (fn, thisContext) {
   }
 };
 
-},{"./applyNoContext":13,"./applyWithContext":14}],16:[function(require,module,exports){
+},{"./applyNoContext":15,"./applyWithContext":16}],18:[function(require,module,exports){
 'use strict';
 
 /**
@@ -1966,7 +2040,7 @@ module.exports = function bindInternal3 (func, thisContext) {
   };
 };
 
-},{}],17:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2003,7 +2077,7 @@ module.exports = function fastTry (fn) {
   }
 };
 
-},{}],18:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 'use strict';
 
 var mapArray = require('./array/map'),
@@ -2027,7 +2101,7 @@ module.exports = function fastMap (subject, fn, thisContext) {
     return mapObject(subject, fn, thisContext);
   }
 };
-},{"./array/map":11,"./object/map":20}],19:[function(require,module,exports){
+},{"./array/map":13,"./object/map":23}],21:[function(require,module,exports){
 'use strict';
 
 var bindInternal3 = require('../function/bindInternal3');
@@ -2052,7 +2126,25 @@ module.exports = function fastForEachObject (subject, fn, thisContext) {
   }
 };
 
-},{"../function/bindInternal3":16}],20:[function(require,module,exports){
+},{"../function/bindInternal3":18}],22:[function(require,module,exports){
+'use strict';
+
+/**
+ * Object.keys() shim for ES3 environments.
+ *
+ * @param  {Object} obj The object to get keys for.
+ * @return {Array}      The array of keys.
+ */
+module.exports = typeof Object.keys === "function" ? Object.keys : /* istanbul ignore next */ function fastKeys (obj) {
+  var keys = [];
+  for (var key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      keys.push(key);
+    }
+  }
+  return keys;
+};
+},{}],23:[function(require,module,exports){
 'use strict';
 
 var bindInternal3 = require('../function/bindInternal3');
@@ -2080,7 +2172,7 @@ module.exports = function fastMapObject (subject, fn, thisContext) {
   return result;
 };
 
-},{"../function/bindInternal3":16}],21:[function(require,module,exports){
+},{"../function/bindInternal3":18}],24:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -2133,7 +2225,7 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
 
 module.exports = invariant;
 
-},{}],22:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -2220,7 +2312,7 @@ var HeartbeatManager = function (_AsyncEventEmitter) {
 }(_AsyncEventEmitter3.default);
 
 exports.default = HeartbeatManager;
-},{"marsdb/dist/AsyncEventEmitter":23}],23:[function(require,module,exports){
+},{"marsdb/dist/AsyncEventEmitter":26}],26:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -2340,7 +2432,7 @@ var AsyncEventEmitter = function (_EventEmitter) {
 }(_eventemitter2.default);
 
 exports.default = AsyncEventEmitter;
-},{"eventemitter3":9}],24:[function(require,module,exports){
+},{"eventemitter3":11}],27:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -2490,5 +2582,7 @@ var PromiseQueue = function () {
 }();
 
 exports.default = PromiseQueue;
-},{"double-ended-queue":8,"fast.js/function/try":17}]},{},[7])(7)
+},{"double-ended-queue":10,"fast.js/function/try":28}],28:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"dup":19}]},{},[9])(9)
 });

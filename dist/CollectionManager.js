@@ -1,7 +1,5 @@
 'use strict';
 
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
-
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
@@ -11,9 +9,17 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.createCollectionDelegate = createCollectionDelegate;
 
+var _bind2 = require('fast.js/function/bind');
+
+var _bind3 = _interopRequireDefault(_bind2);
+
 var _forEach = require('fast.js/forEach');
 
 var _forEach2 = _interopRequireDefault(_forEach);
+
+var _keys2 = require('fast.js/object/keys');
+
+var _keys3 = _interopRequireDefault(_keys2);
 
 var _marsdb = require('marsdb');
 
@@ -50,10 +56,10 @@ function createCollectionDelegate(connection) {
 
       var _this = _possibleConstructorReturn(this, (_Object$getPrototypeO = Object.getPrototypeOf(CollectionManager)).call.apply(_Object$getPrototypeO, [this].concat(args)));
 
-      connection.on('status:connected', _this._handleConnected.bind(_this));
-      connection.on('message:added', _this._handleRemoteAdded.bind(_this));
-      connection.on('message:changed', _this._handleRemoteChanged.bind(_this));
-      connection.on('message:removed', _this._handleRemoteRemoved.bind(_this));
+      connection.on('status:connected', (0, _bind3.default)(_this._handleConnected, _this));
+      connection.on('message:added', (0, _bind3.default)(_this._handleRemoteAdded, _this));
+      connection.on('message:changed', (0, _bind3.default)(_this._handleRemoteChanged, _this));
+      connection.on('message:removed', (0, _bind3.default)(_this._handleRemoteRemoved, _this));
       return _this;
     }
 
@@ -69,13 +75,15 @@ function createCollectionDelegate(connection) {
 
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/insert';
-          connection.methodManager.apply(methodName, [doc, options], randomId.seed).result().then(null, function (e) {
+          var handleInsertError = function handleInsertError(e) {
             return localInsert.then(function () {
               return _this2.db.remove(doc._id, { quiet: true });
             }).then(function () {
               throw e;
             });
-          });
+          };
+
+          connection.methodManager.apply(methodName, [doc, options], randomId.seed).result().then(null, handleInsertError);
         }
 
         return localInsert;
@@ -91,13 +99,15 @@ function createCollectionDelegate(connection) {
 
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/remove';
-          connection.methodManager.apply(methodName, [query, options]).result().then(null, function (e) {
+          var handleRemoveError = function handleRemoveError(e) {
             return localRemove.then(function (removedDocs) {
               return _this3.db.insertAll(removedDocs, { quiet: true });
             }).then(function () {
               throw e;
             });
-          });
+          };
+
+          connection.methodManager.apply(methodName, [query, options]).result().then(null, handleRemoveError);
         }
 
         return localRemove;
@@ -113,15 +123,23 @@ function createCollectionDelegate(connection) {
 
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/update';
-          connection.methodManager.apply(methodName, [query, modifier, options]).result().then(null, function (e) {
+          var handleUpdateError = function handleUpdateError(e) {
             return localUpdate.then(function (res) {
-              return _this4.db.insertAll(res.original.filter(function (d) {
-                return d;
-              }), { quiet: true });
+              if (res.inserted) {
+                _this4.db.remove(res.inserted._id, { quiet: true });
+              } else {
+                (0, _forEach2.default)(res.original, function (d) {
+                  var docId = d._id;
+                  delete d._id;
+                  _this4.db.update({ _id: docId }, d, { quiet: true, upsert: true });
+                });
+              }
             }).then(function () {
               throw e;
             });
-          });
+          };
+
+          connection.methodManager.apply(methodName, [query, modifier, options]).result().then(null, handleUpdateError);
         }
 
         return localUpdate;
@@ -129,16 +147,8 @@ function createCollectionDelegate(connection) {
     }, {
       key: '_handleRemoteAdded',
       value: function _handleRemoteAdded(msg) {
-        var _this5 = this;
-
-        this.db.ids(msg.id).then(function (ids) {
-          if (ids.length) {
-            return _this5.db.update(msg.id, msg.fields, { quiet: true });
-          } else {
-            var doc = _extends({ id: msg.id }, msg.fields);
-            return _this5.db.insert(doc, { quiet: true });
-          }
-        });
+        delete msg.fields._id;
+        return this.db.update({ _id: msg.id }, msg.fields, { quiet: true, upsert: true });
       }
     }, {
       key: '_handleRemoteChanged',
@@ -172,13 +182,16 @@ function createCollectionDelegate(connection) {
           }
         }
         if (msg.fields) {
+          delete msg.fields._id;
           modifier.$set = {};
           (0, _forEach2.default)(msg.fields, function (v, k) {
             modifier.$set[k] = v;
           });
         }
 
-        return this.db.update(msg.id, modifier, { quiet: true });
+        if ((0, _keys3.default)(modifier).length > 0) {
+          return this.db.update(msg.id, modifier, { quiet: true });
+        }
       }
     }, {
       key: '_handleRemoteRemoved',

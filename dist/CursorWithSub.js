@@ -31,9 +31,15 @@ function createCursorWithSub(connection) {
     _inherits(CursorWithSub, _currentCursorClass2);
 
     function CursorWithSub() {
+      var _Object$getPrototypeO;
+
       _classCallCheck(this, CursorWithSub);
 
-      return _possibleConstructorReturn(this, Object.getPrototypeOf(CursorWithSub).apply(this, arguments));
+      for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
+        args[_key] = arguments[_key];
+      }
+
+      return _possibleConstructorReturn(this, (_Object$getPrototypeO = Object.getPrototypeOf(CursorWithSub)).call.apply(_Object$getPrototypeO, [this].concat(args)));
     }
 
     _createClass(CursorWithSub, [{
@@ -41,8 +47,8 @@ function createCursorWithSub(connection) {
       value: function _doUpdate() {
         var _this2 = this;
 
-        for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
-          args[_key] = arguments[_key];
+        for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+          args[_key2] = arguments[_key2];
         }
 
         var sub = this.options.sub;

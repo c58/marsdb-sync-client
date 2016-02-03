@@ -14,6 +14,7 @@ class DDPTestComponent extends React.Component {
 
   componentDidMount() {
     TodoModel.find({}, {sub: ['allTodos']}).observe((todos) => {
+      console.log(todos);
       this.setState({messages: todos});
     })
   }

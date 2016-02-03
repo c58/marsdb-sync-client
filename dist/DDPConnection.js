@@ -71,8 +71,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
 
   _createClass(DDPConnection, [{
     key: 'sendMethod',
-    value: function sendMethod(name, params, randomSeed) {
-      var id = _marsdb.Random.default().id(20);
+    value: function sendMethod(name, params, id, randomSeed) {
       var msg = {
         msg: 'method',
         id: id,
@@ -83,19 +82,16 @@ var DDPConnection = function (_AsyncEventEmitter) {
         msg.randomSeed = randomSeed;
       }
       this._sendMessage(msg);
-      return id;
     }
   }, {
     key: 'sendSub',
-    value: function sendSub(name, params) {
-      var id = _marsdb.Random.default().id(20);
+    value: function sendSub(name, params, id) {
       this._sendMessage({
         msg: 'sub',
         id: id,
         name: name,
         params: params
       });
-      return id;
     }
   }, {
     key: 'sendUnsub',
@@ -104,17 +100,14 @@ var DDPConnection = function (_AsyncEventEmitter) {
         msg: 'unsub',
         id: id
       });
-      return id;
     }
   }, {
     key: 'sendPing',
     value: function sendPing() {
-      var id = _marsdb.Random.default().id(20);
       this._sendMessage({
         msg: 'ping',
-        id: id
+        id: _marsdb.Random.default().id(20)
       });
-      return id;
     }
   }, {
     key: 'sendPong',
@@ -188,7 +181,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
 
       return this._queue.add(function () {
         var res = (0, _try3.default)(function () {
-          var msgObj = _marsdb.EJSON.parse(rawMsg);
+          var msgObj = _marsdb.EJSON.parse(rawMsg.data);
           return _this2._processMessage(msgObj);
         });
         if (res instanceof Error) {
@@ -236,6 +229,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
     key: '_setStatus',
     value: function _setStatus(status, a, b, c) {
       this._status = status;
+      console.log(this._status);
       this.emit(('status:' + status).toLowerCase(), a, b, c);
     }
   }, {
