@@ -14,10 +14,6 @@ var _forEach = require('fast.js/forEach');
 
 var _forEach2 = _interopRequireDefault(_forEach);
 
-var _invariant = require('invariant');
-
-var _invariant2 = _interopRequireDefault(_invariant);
-
 var _MethodCall = require('./MethodCall');
 
 var _MethodCall2 = _interopRequireDefault(_MethodCall);

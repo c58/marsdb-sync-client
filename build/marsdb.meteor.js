@@ -202,7 +202,14 @@ function createCollectionDelegate(connection) {
     }, {
       key: '_handleConnected',
       value: function _handleConnected(reconnected) {
-        // TODO sync all collections with backend
+        var _this5 = this;
+
+        var methodName = '/' + this.db.modelName + '/sync';
+        return this.db.ids().then(function (ids) {
+          return connection.methodManager.apply(methodName, [ids]).result();
+        }).then(function (removedIds) {
+          return _this5.db.remove({ _id: { $in: removedIds } }, { quiet: true });
+        });
       }
     }]);
 
@@ -211,7 +218,7 @@ function createCollectionDelegate(connection) {
 
   return CollectionManager;
 }
-},{"fast.js/forEach":14,"fast.js/function/bind":17,"fast.js/object/keys":22,"marsdb":undefined}],2:[function(require,module,exports){
+},{"fast.js/forEach":15,"fast.js/function/bind":18,"fast.js/object/keys":23,"marsdb":undefined}],2:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -221,9 +228,16 @@ var _get = function get(object, property, receiver) { if (object === null) objec
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports._isCacheValid = _isCacheValid;
 exports.createCursorWithSub = createCursorWithSub;
 
+var _keys2 = require('fast.js/object/keys');
+
+var _keys3 = _interopRequireDefault(_keys2);
+
 var _marsdb = require('marsdb');
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
@@ -233,6 +247,24 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
+// Internals
+function _isCacheValid(tryCache, result) {
+  var resolveCache = false;
+  if (typeof tryCache === 'function') {
+    resolveCache = tryCache(result);
+  } else if (Array.isArray(result) && result.length > 0 || Object.prototype.toString.call(result) === '[object Object]' && (0, _keys3.default)(result).length > 0) {
+    resolveCache = true;
+  }
+  return resolveCache;
+}
+
+/**
+ * Creates a Cursor class based on current default crusor class.
+ * Created class adds support of `sub` field of options for
+ * automatically subscribe/unsubscribe.
+ * @param  {DDPConnection} connection
+ * @return {Cursor}
+ */
 function createCursorWithSub(connection) {
   var _currentCursorClass = _marsdb.Collection.defaultCursor();
 
@@ -245,27 +277,24 @@ function createCursorWithSub(connection) {
     _inherits(CursorWithSub, _currentCursorClass2);
 
     function CursorWithSub() {
-      var _Object$getPrototypeO;
-
       _classCallCheck(this, CursorWithSub);
 
-      for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
-        args[_key] = arguments[_key];
-      }
-
-      return _possibleConstructorReturn(this, (_Object$getPrototypeO = Object.getPrototypeOf(CursorWithSub)).call.apply(_Object$getPrototypeO, [this].concat(args)));
+      return _possibleConstructorReturn(this, Object.getPrototypeOf(CursorWithSub).apply(this, arguments));
     }
 
     _createClass(CursorWithSub, [{
       key: '_doUpdate',
-      value: function _doUpdate() {
+      value: function _doUpdate(firstRun) {
         var _this2 = this;
 
-        for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-          args[_key2] = arguments[_key2];
-        }
+        var _options = this.options;
+        var sub = _options.sub;
+        var waitReady = _options.waitReady;
+        var tryCache = _options.tryCache;
 
-        var sub = this.options.sub;
+        var superUpdate = function superUpdate() {
+          return _get(Object.getPrototypeOf(CursorWithSub.prototype), '_doUpdate', _this2).call(_this2, firstRun);
+        };
 
         if (!this._subscription && sub) {
           var _connection$subManage;
@@ -277,16 +306,23 @@ function createCursorWithSub(connection) {
             delete _this2._subscription;
           });
 
-          return this._subscription.ready().then(function () {
-            var _get2;
-
-            return (_get2 = _get(Object.getPrototypeOf(CursorWithSub.prototype), '_doUpdate', _this2)).call.apply(_get2, [_this2].concat(args));
-          });
-        } else {
-          var _get3;
-
-          return (_get3 = _get(Object.getPrototypeOf(CursorWithSub.prototype), '_doUpdate', this)).call.apply(_get3, [this].concat(args));
+          if (waitReady) {
+            return this._subscription.ready().then(superUpdate);
+          } else if (tryCache) {
+            return this.exec().then(function (result) {
+              if (_isCacheValid(tryCache, result)) {
+                _this2._updateLatestIds();
+                return _this2._propagateUpdate(firstRun).then(function () {
+                  return result;
+                });
+              } else {
+                return _this2._subscription.ready().then(superUpdate);
+              }
+            });
+          }
         }
+
+        return superUpdate();
       }
     }]);
 
@@ -295,7 +331,7 @@ function createCursorWithSub(connection) {
 
   return CursorWithSub;
 }
-},{"marsdb":undefined}],3:[function(require,module,exports){
+},{"fast.js/object/keys":23,"marsdb":undefined}],3:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -303,6 +339,7 @@ var _createClass = function () { function defineProperties(target, props) { for 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.CONN_STATUS = undefined;
 
 var _try2 = require('fast.js/function/try');
 
@@ -336,8 +373,10 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 // Status of a DDP connection
 var DDP_VERSION = 1;
+var HEARTBEAT_INTERVAL = 17500;
+var HEARTBEAT_TIMEOUT = 15000;
 var RECONNECT_INTERVAL = 5000;
-var CONN_STATUS = {
+var CONN_STATUS = exports.CONN_STATUS = {
   CONNECTING: 'CONNECTING',
   CONNECTED: 'CONNECTED',
   DISCONNECTED: 'DISCONNECTED'
@@ -346,20 +385,25 @@ var CONN_STATUS = {
 var DDPConnection = function (_AsyncEventEmitter) {
   _inherits(DDPConnection, _AsyncEventEmitter);
 
-  function DDPConnection(endPoint) {
-    var socket = arguments.length <= 1 || arguments[1] === undefined ? WebSocket : arguments[1];
+  function DDPConnection(_ref) {
+    var url = _ref.url;
+    var _ref$socket = _ref.socket;
+    var socket = _ref$socket === undefined ? WebSocket : _ref$socket;
+    var _ref$autoReconnect = _ref.autoReconnect;
+    var autoReconnect = _ref$autoReconnect === undefined ? true : _ref$autoReconnect;
 
     _classCallCheck(this, DDPConnection);
 
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(DDPConnection).call(this));
 
-    _this.endPoint = endPoint;
+    _this.url = url;
     _this._queue = new _PromiseQueue2.default(1);
-    _this._fullyConnectedOnce = false;
     _this._sessionId = null;
+    _this._autoReconnect = autoReconnect;
     _this._socket = socket;
+    _this._status = CONN_STATUS.DISCONNECTED;
 
-    _this._heartbeat = new _HeartbeatManager2.default();
+    _this._heartbeat = new _HeartbeatManager2.default(HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT);
     _this._heartbeat.on('timeout', (0, _bind3.default)(_this._handleHearbeatTimeout, _this));
     _this._heartbeat.on('sendPing', (0, _bind3.default)(_this.sendPing, _this));
     _this._heartbeat.on('sendPong', (0, _bind3.default)(_this.sendPong, _this));
@@ -367,9 +411,27 @@ var DDPConnection = function (_AsyncEventEmitter) {
     return _this;
   }
 
+  /**
+   * Returns true if client is fully connected to a server
+   * @return {Boolean}
+   */
+
   _createClass(DDPConnection, [{
     key: 'sendMethod',
-    value: function sendMethod(name, params, id, randomSeed) {
+
+    /**
+     * Sends a "method" message to the server with given
+     * parameters
+     * @param  {String} name
+     * @param  {String} params
+     * @param  {String} id
+     * @param  {String} randomSeed
+     */
+    value: function sendMethod(name) {
+      var params = arguments.length <= 1 || arguments[1] === undefined ? [] : arguments[1];
+      var id = arguments[2];
+      var randomSeed = arguments[3];
+
       var msg = {
         msg: 'method',
         id: id,
@@ -381,9 +443,21 @@ var DDPConnection = function (_AsyncEventEmitter) {
       }
       this._sendMessage(msg);
     }
+
+    /**
+     * Send "sub" message to the server with given
+     * publusher name and parameters
+     * @param  {String} name
+     * @param  {Array} params
+     * @param  {String} id
+     */
+
   }, {
     key: 'sendSub',
-    value: function sendSub(name, params, id) {
+    value: function sendSub(name) {
+      var params = arguments.length <= 1 || arguments[1] === undefined ? [] : arguments[1];
+      var id = arguments[2];
+
       this._sendMessage({
         msg: 'sub',
         id: id,
@@ -391,6 +465,13 @@ var DDPConnection = function (_AsyncEventEmitter) {
         params: params
       });
     }
+
+    /**
+     * Send "unsub" message to the server for given
+     * subscription id
+     * @param  {String} id
+     */
+
   }, {
     key: 'sendUnsub',
     value: function sendUnsub(id) {
@@ -399,6 +480,11 @@ var DDPConnection = function (_AsyncEventEmitter) {
         id: id
       });
     }
+
+    /**
+     * Send a "ping" message with randomly generated ping id
+     */
+
   }, {
     key: 'sendPing',
     value: function sendPing() {
@@ -407,6 +493,12 @@ var DDPConnection = function (_AsyncEventEmitter) {
         id: _marsdb.Random.default().id(20)
       });
     }
+
+    /**
+     * Sends a "pong" message for given id of ping message
+     * @param  {String} id
+     */
+
   }, {
     key: 'sendPong',
     value: function sendPong(id) {
@@ -415,25 +507,70 @@ var DDPConnection = function (_AsyncEventEmitter) {
         id: id
       });
     }
+
+    /**
+     * Make a new WebSocket connection to the server
+     * if we are not connected yet (isDicsonnected).
+     * Returns true if connecting, false if already connectiong
+     * @returns {Boolean}
+     */
+
   }, {
     key: 'connect',
     value: function connect() {
-      if (!this.isConnected) {
-        this._rawConn = new this._socket(this.endPoint);
+      if (this.isDisconnected) {
+        this._rawConn = new this._socket(this.url);
         this._rawConn.onopen = (0, _bind3.default)(this._handleOpen, this);
         this._rawConn.onerror = (0, _bind3.default)(this._handleError, this);
         this._rawConn.onclose = (0, _bind3.default)(this._handleClose, this);
         this._rawConn.onmessage = (0, _bind3.default)(this._handleRawMessage, this);
         this._setStatus(CONN_STATUS.CONNECTING);
+        return true;
       }
+      return false;
     }
+
+    /**
+     * Reconnect to the server with unlimited tries. A period
+     * of tries is 5 seconds. It reconnects only if not
+     * connected. It cancels previously scheduled `connect` by `reconnect`.
+     * Returns a function for canceling reconnection process or undefined
+     * if connection is not disconnected.
+     * @return {Function}
+     */
+
   }, {
     key: 'reconnect',
     value: function reconnect() {
-      clearTimeout(this._reconnTimer);
-      this._reconnecting = true;
-      this._setStatus(CONN_STATUS.DISCONNECTED);
-      this._reconnTimer = setTimeout((0, _bind3.default)(this.connect, this), RECONNECT_INTERVAL);
+      var _this2 = this;
+
+      if (this.isDisconnected) {
+        clearTimeout(this._reconnTimer);
+        this._reconnecting = true;
+        this._reconnTimer = setTimeout((0, _bind3.default)(this.connect, this), RECONNECT_INTERVAL);
+
+        return function () {
+          clearTimeout(_this2._reconnTimer);
+          _this2._reconnecting = false;
+          _this2.disconnect();
+        };
+      }
+    }
+
+    /**
+     * Close WebSocket connection. If autoReconnect is enabled
+     * (enabled by default), then after 5 sec reconnection will
+     * be initiated.
+     */
+
+  }, {
+    key: 'disconnect',
+    value: function disconnect() {
+      var _this3 = this;
+
+      (0, _try3.default)(function () {
+        return _this3._rawConn && _this3._rawConn.close();
+      });
     }
   }, {
     key: '_handleOpen',
@@ -452,7 +589,6 @@ var DDPConnection = function (_AsyncEventEmitter) {
       if (!this.isConnected) {
         this._setStatus(CONN_STATUS.CONNECTED, this._reconnecting);
         this._sessionId = msg.session;
-        this._fullyConnectedOnce = true;
         this._reconnecting = false;
       }
     }
@@ -460,12 +596,17 @@ var DDPConnection = function (_AsyncEventEmitter) {
     key: '_handleClose',
     value: function _handleClose() {
       this._heartbeat._clearTimers();
-      this.reconnect();
+      this._setStatus(CONN_STATUS.DISCONNECTED);
+
+      if (this._autoReconnect) {
+        this._reconnecting = false;
+        this.reconnect();
+      }
     }
   }, {
     key: '_handleHearbeatTimeout',
     value: function _handleHearbeatTimeout() {
-      this._rawConn.close();
+      this.disconnect();
     }
   }, {
     key: '_handleError',
@@ -475,15 +616,15 @@ var DDPConnection = function (_AsyncEventEmitter) {
   }, {
     key: '_handleRawMessage',
     value: function _handleRawMessage(rawMsg) {
-      var _this2 = this;
+      var _this4 = this;
 
       return this._queue.add(function () {
         var res = (0, _try3.default)(function () {
           var msgObj = _marsdb.EJSON.parse(rawMsg.data);
-          return _this2._processMessage(msgObj);
+          return _this4._processMessage(msgObj);
         });
         if (res instanceof Error) {
-          return _this2._handleError(res);
+          return _this4._handleError(res);
         }
         return res;
       });
@@ -492,7 +633,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
     key: '_processMessage',
     value: function _processMessage(msg) {
       switch (msg.msg) {
-        case 'conected':
+        case 'connected':
           return this._handleConnectedMessage(msg);
         case 'ping':
           return this._heartbeat.handlePing(msg);
@@ -514,10 +655,10 @@ var DDPConnection = function (_AsyncEventEmitter) {
   }, {
     key: '_sendMessage',
     value: function _sendMessage(msgObj) {
-      var _this3 = this;
+      var _this5 = this;
 
       var result = (0, _try3.default)(function () {
-        return _this3._rawConn.send(_marsdb.EJSON.stringify(msgObj));
+        return _this5._rawConn.send(_marsdb.EJSON.stringify(msgObj));
       });
       if (result instanceof Error) {
         this._handleError(result);
@@ -525,15 +666,25 @@ var DDPConnection = function (_AsyncEventEmitter) {
     }
   }, {
     key: '_setStatus',
-    value: function _setStatus(status, a, b, c) {
+    value: function _setStatus(status, a) {
       this._status = status;
-      console.log(this._status);
-      this.emit(('status:' + status).toLowerCase(), a, b, c);
+      this.emit(('status:' + status).toLowerCase(), a);
     }
   }, {
     key: 'isConnected',
     get: function get() {
       return this._status === CONN_STATUS.CONNECTED;
+    }
+
+    /**
+     * Returns true if client disconnected
+     * @return {Boolean}
+     */
+
+  }, {
+    key: 'isDisconnected',
+    get: function get() {
+      return this._status === CONN_STATUS.DISCONNECTED;
     }
   }]);
 
@@ -541,7 +692,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
 }(_AsyncEventEmitter3.default);
 
 exports.default = DDPConnection;
-},{"fast.js/function/bind":17,"fast.js/function/try":19,"marsdb":undefined,"marsdb-sync-server/dist/HeartbeatManager":25,"marsdb/dist/AsyncEventEmitter":26,"marsdb/dist/PromiseQueue":27}],4:[function(require,module,exports){
+},{"fast.js/function/bind":18,"fast.js/function/try":20,"marsdb":undefined,"marsdb-sync-server/dist/HeartbeatManager":26,"marsdb/dist/AsyncEventEmitter":27,"marsdb/dist/PromiseQueue":28}],4:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -550,13 +701,73 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
+var _bind2 = require('fast.js/function/bind');
+
+var _bind3 = _interopRequireDefault(_bind2);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/**
+ * Manager for handling processing and remote errors.
+ * For now it is just print warning in a console.
+ */
+
+var ErrorManager = function () {
+  function ErrorManager(connection) {
+    _classCallCheck(this, ErrorManager);
+
+    this.conn = connection;
+    connection.on('message:error', (0, _bind3.default)(this._handleError, this));
+    connection.on('error', (0, _bind3.default)(this._handleError, this));
+  }
+
+  _createClass(ErrorManager, [{
+    key: '_handleError',
+    value: function _handleError(error) {
+      if (error && error.message) {
+        console.warn(error.message + '\n' + error.stack);
+      } else {
+        console.warn(JSON.stringify(error));
+      }
+    }
+  }]);
+
+  return ErrorManager;
+}();
+
+exports.default = ErrorManager;
+},{"fast.js/function/bind":18}],5:[function(require,module,exports){
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.CALL_STATUS = undefined;
+
+var _bind2 = require('fast.js/function/bind');
+
+var _bind3 = _interopRequireDefault(_bind2);
+
 var _marsdb = require('marsdb');
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+// Method call statuses
+var CALL_STATUS = exports.CALL_STATUS = {
+  RESULT: 'RESULT',
+  ERROR: 'ERROR',
+  UPDATED: 'UPDATED'
+};
 
 /**
  * Class for tracking method call status.
@@ -570,65 +781,87 @@ var MethodCall = function (_EventEmitter) {
 
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(MethodCall).call(this));
 
-    _this.result = function () {
-      return _this._promiseMixed(new Promise(function (resolve, reject) {
-        if (_this._error) {
-          reject(_this._error);
-        } else if (_this._result) {
-          resolve(_this._result);
-        } else {
-          _this.once('result', resolve);
-          _this.once('error', reject);
-        }
-      }));
-    };
-
-    _this.updated = function () {
-      return _this._promiseMixed(new Promise(function (resolve, reject) {
-        if (_this._updated) {
-          resolve();
-        } else {
-          _this.once('updated', resolve);
-        }
-      }));
-    };
-
     _this.id = _marsdb.Random.default().id(20);
+    _this.result = (0, _bind3.default)(_this.result, _this);
+    _this.updated = (0, _bind3.default)(_this.updated, _this);
+
     connection.sendMethod(method, params, _this.id, randomSeed);
     return _this;
   }
 
+  /**
+   * Returns a promise that will be resolved when result
+   * of funciton call is received. It is also have "result"
+   * and "updated" fields for chaining
+   * @return {Promise}
+   */
+
   _createClass(MethodCall, [{
+    key: 'result',
+    value: function result() {
+      var _this2 = this;
+
+      return this._promiseMixed(new Promise(function (resolve, reject) {
+        if (_this2._error) {
+          reject(_this2._error);
+        } else if (_this2._result) {
+          resolve(_this2._result);
+        } else {
+          _this2.once(CALL_STATUS.RESULT, resolve);
+          _this2.once(CALL_STATUS.ERROR, reject);
+        }
+      }));
+    }
+
+    /**
+     * Returns a promise that will be resolved when updated
+     * message received for given funciton call. It is also
+     * have "result" and "updated" fields for chaining.
+     * @return {Promise}
+     */
+
+  }, {
+    key: 'updated',
+    value: function updated() {
+      var _this3 = this;
+
+      return this._promiseMixed(new Promise(function (resolve, reject) {
+        if (_this3._updated) {
+          resolve();
+        } else {
+          _this3.once(CALL_STATUS.UPDATED, resolve);
+        }
+      }));
+    }
+  }, {
     key: '_promiseMixed',
     value: function _promiseMixed(promise) {
-      var _this2 = this;
+      var _this4 = this;
 
       return {
         result: this.result,
         updated: this.updated,
         then: function then() {
-          return _this2._promiseMixed(promise.then.apply(promise, arguments));
+          return _this4._promiseMixed(promise.then.apply(promise, arguments));
         }
       };
     }
   }, {
-    key: '_handleResultMessage',
-    value: function _handleResultMessage(msg) {
-      if (msg.id == this.id) {
-        if (msg.error) {
-          this._error = msg.error;
-          this.emit('error', msg.error);
-        } else {
-          this._result = msg.result;
-          this.emit('result', msg.result);
-        }
+    key: '_handleResult',
+    value: function _handleResult(error, result) {
+      if (error) {
+        this._error = error;
+        this.emit(CALL_STATUS.ERROR, error);
+      } else {
+        this._result = result;
+        this.emit(CALL_STATUS.RESULT, result);
       }
     }
   }, {
-    key: '_handleUpdatedMessage',
-    value: function _handleUpdatedMessage(msg) {
+    key: '_handleUpdated',
+    value: function _handleUpdated(msg) {
       this._updated = true;
-      this.emit('updated');
+      this.emit(CALL_STATUS.UPDATED);
     }
   }]);
 
@@ -636,10 +869,8 @@ var MethodCall = function (_EventEmitter) {
 }(_marsdb.EventEmitter);
 
 exports.default = MethodCall;
-},{"marsdb":undefined}],5:[function(require,module,exports){
+},{"fast.js/function/bind":18,"marsdb":undefined}],6:[function(require,module,exports){
 'use strict';
-
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
@@ -647,13 +878,13 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
+var _bind2 = require('fast.js/function/bind');
+
+var _bind3 = _interopRequireDefault(_bind2);
+
 var _forEach = require('fast.js/forEach');
 
 var _forEach2 = _interopRequireDefault(_forEach);
-
-var _invariant = require('invariant');
-
-var _invariant2 = _interopRequireDefault(_invariant);
 
 var _MethodCall = require('./MethodCall');
 
@@ -676,9 +907,9 @@ var MethodCallManager = function () {
     this.conn = connection;
     this._methods = {};
 
-    connection.on('status:disconnected', this._handleDisconnected.bind(this));
-    connection.on('message:result', this._handleMethodResult.bind(this));
-    connection.on('message:updated', this._handleMethodUpdated.bind(this));
+    connection.on('status:disconnected', (0, _bind3.default)(this._handleDisconnected, this));
+    connection.on('message:result', (0, _bind3.default)(this._handleMethodResult, this));
+    connection.on('message:updated', (0, _bind3.default)(this._handleMethodUpdated, this));
   }
 
   /**
@@ -709,12 +940,11 @@ var MethodCallManager = function () {
 
   }, {
     key: 'apply',
-    value: function apply(method, params, randomSeed) {
+    value: function apply(method) {
       var _this = this;
 
-      (0, _invariant2.default)(typeof method === 'string', 'Method name must be a string, but given type is %s', typeof method === 'undefined' ? 'undefined' : _typeof(method));
-
-      (0, _invariant2.default)(!params || Array.isArray(params), 'Params must be an array or undefined, but given type is %s', typeof params === 'undefined' ? 'undefined' : _typeof(params));
+      var params = arguments.length <= 1 || arguments[1] === undefined ? [] : arguments[1];
+      var randomSeed = arguments[2];
 
       var call = new _MethodCall2.default(method, params, randomSeed, this.conn);
       this._methods[call.id] = call;
@@ -732,7 +962,10 @@ var MethodCallManager = function () {
     key: '_handleMethodResult',
     value: function _handleMethodResult(msg) {
       if (msg.id && this._methods[msg.id]) {
-        this._methods[msg.id]._handleResultMessage(msg);
+        var result = msg.result;
+        var error = msg.error;
+
+        this._methods[msg.id]._handleResult(error, result);
       }
     }
   }, {
@@ -742,7 +975,7 @@ var MethodCallManager = function () {
 
       (0, _forEach2.default)(msg.methods, function (mid) {
         if (_this2._methods[mid]) {
-          _this2._methods[mid]._handleUpdatedMessage(msg);
+          _this2._methods[mid]._handleUpdated();
         }
       });
     }
@@ -750,8 +983,8 @@ var MethodCallManager = function () {
     key: '_handleDisconnected',
     value: function _handleDisconnected() {
       (0, _forEach2.default)(this._methods, function (methodCall) {
-        methodCall._handleResultMessage({
-          error: new Error('Disconnected, method can\'t be done')
+        methodCall._handleResult({
+          reason: 'Disconnected, method can\'t be done'
         });
       });
       this._methods = {};
@@ -762,7 +995,7 @@ var MethodCallManager = function () {
 }();
 
 exports.default = MethodCallManager;
-},{"./MethodCall":4,"fast.js/forEach":14,"invariant":24}],6:[function(require,module,exports){
+},{"./MethodCall":5,"fast.js/forEach":15,"fast.js/function/bind":18}],7:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -971,7 +1204,7 @@ var Subscription = function (_EventEmitter) {
 }(_marsdb.EventEmitter);
 
 exports.default = Subscription;
-},{"marsdb":undefined}],7:[function(require,module,exports){
+},{"marsdb":undefined}],8:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -1172,7 +1405,7 @@ var SubscriptionManager = function (_EventEmitter) {
 }(_marsdb.EventEmitter);
 
 exports.default = SubscriptionManager;
-},{"./Subscription":6,"fast.js/forEach":14,"fast.js/function/bind":17,"marsdb":undefined}],8:[function(require,module,exports){
+},{"./Subscription":7,"fast.js/forEach":15,"fast.js/function/bind":18,"marsdb":undefined}],9:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1207,6 +1440,10 @@ var _SubscriptionManager2 = _interopRequireDefault(_SubscriptionManager);
 var _MethodCallManager = require('./MethodCallManager');
 
 var _MethodCallManager2 = _interopRequireDefault(_MethodCallManager);
+
+var _ErrorManager = require('./ErrorManager');
+
+var _ErrorManager2 = _interopRequireDefault(_ErrorManager);
 
 var _CollectionManager = require('./CollectionManager');
 
@@ -1248,9 +1485,10 @@ function configure(_ref) {
 
   (0, _invariant2.default)(!_connection, 'configure(...): connection already configured');
 
-  _connection = new _DDPConnection2.default(url, socket);
+  _connection = new _DDPConnection2.default({ url: url, socket: socket });
   _connection.subManager = new _SubscriptionManager2.default(_connection);
   _connection.methodManager = new _MethodCallManager2.default(_connection);
+  _connection.errorManager = new _ErrorManager2.default(_connection);
   _connection.customManagers = (0, _map3.default)(managers, function (x) {
     return new x(_connection);
   });
@@ -1258,7 +1496,7 @@ function configure(_ref) {
   _marsdb2.default.defaultCursor((0, _CursorWithSub.createCursorWithSub)(_connection));
   return _connection;
 }
-},{"./CollectionManager":1,"./CursorWithSub":2,"./DDPConnection":3,"./MethodCallManager":5,"./SubscriptionManager":7,"fast.js/map":20,"invariant":24,"marsdb":undefined}],9:[function(require,module,exports){
+},{"./CollectionManager":1,"./CursorWithSub":2,"./DDPConnection":3,"./ErrorManager":4,"./MethodCallManager":6,"./SubscriptionManager":8,"fast.js/map":21,"invariant":25,"marsdb":undefined}],10:[function(require,module,exports){
 const client = require('./dist');
 module.exports = {
   configure: client.configure,
@@ -1267,7 +1505,7 @@ module.exports = {
   subscribe: client.subsctibe,
 };
 
-},{"./dist":8}],10:[function(require,module,exports){
+},{"./dist":9}],11:[function(require,module,exports){
 /**
  * Copyright (c) 2013 Petka Antonov
  * 
@@ -1556,7 +1794,7 @@ function getCapacity(capacity) {
 
 module.exports = Deque;
 
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 'use strict';
 
 //
@@ -1820,7 +2058,7 @@ if ('undefined' !== typeof module) {
   module.exports = EventEmitter;
 }
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 'use strict';
 
 var bindInternal3 = require('../function/bindInternal3');
@@ -1843,7 +2081,7 @@ module.exports = function fastForEach (subject, fn, thisContext) {
   }
 };
 
-},{"../function/bindInternal3":18}],13:[function(require,module,exports){
+},{"../function/bindInternal3":19}],14:[function(require,module,exports){
 'use strict';
 
 var bindInternal3 = require('../function/bindInternal3');
@@ -1869,7 +2107,7 @@ module.exports = function fastMap (subject, fn, thisContext) {
   return result;
 };
 
-},{"../function/bindInternal3":18}],14:[function(require,module,exports){
+},{"../function/bindInternal3":19}],15:[function(require,module,exports){
 'use strict';
 
 var forEachArray = require('./array/forEach'),
@@ -1892,7 +2130,7 @@ module.exports = function fastForEach (subject, fn, thisContext) {
     return forEachObject(subject, fn, thisContext);
   }
 };
-},{"./array/forEach":12,"./object/forEach":21}],15:[function(require,module,exports){
+},{"./array/forEach":13,"./object/forEach":22}],16:[function(require,module,exports){
 'use strict';
 
 /**
@@ -1923,7 +2161,7 @@ module.exports = function applyNoContext (subject, args) {
   }
 };
 
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 'use strict';
 
 /**
@@ -1954,7 +2192,7 @@ module.exports = function applyWithContext (subject, thisContext, args) {
   }
 };
 
-},{}],17:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 'use strict';
 
 var applyWithContext = require('./applyWithContext');
@@ -2027,7 +2265,7 @@ module.exports = function fastBind (fn, thisContext) {
   }
 };
 
-},{"./applyNoContext":15,"./applyWithContext":16}],18:[function(require,module,exports){
+},{"./applyNoContext":16,"./applyWithContext":17}],19:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2040,7 +2278,7 @@ module.exports = function bindInternal3 (func, thisContext) {
   };
 };
 
-},{}],19:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2077,7 +2315,7 @@ module.exports = function fastTry (fn) {
   }
 };
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 'use strict';
 
 var mapArray = require('./array/map'),
@@ -2101,7 +2339,7 @@ module.exports = function fastMap (subject, fn, thisContext) {
     return mapObject(subject, fn, thisContext);
   }
 };
-},{"./array/map":13,"./object/map":23}],21:[function(require,module,exports){
+},{"./array/map":14,"./object/map":24}],22:[function(require,module,exports){
 'use strict';
 
 var bindInternal3 = require('../function/bindInternal3');
@@ -2126,7 +2364,7 @@ module.exports = function fastForEachObject (subject, fn, thisContext) {
   }
 };
 
-},{"../function/bindInternal3":18}],22:[function(require,module,exports){
+},{"../function/bindInternal3":19}],23:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2144,7 +2382,7 @@ module.exports = typeof Object.keys === "function" ? Object.keys : /* istanbul i
   }
   return keys;
 };
-},{}],23:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 'use strict';
 
 var bindInternal3 = require('../function/bindInternal3');
@@ -2172,7 +2410,7 @@ module.exports = function fastMapObject (subject, fn, thisContext) {
   return result;
 };
 
-},{"../function/bindInternal3":18}],24:[function(require,module,exports){
+},{"../function/bindInternal3":19}],25:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -2225,7 +2463,7 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
 
 module.exports = invariant;
 
-},{}],25:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -2312,7 +2550,7 @@ var HeartbeatManager = function (_AsyncEventEmitter) {
 }(_AsyncEventEmitter3.default);
 
 exports.default = HeartbeatManager;
-},{"marsdb/dist/AsyncEventEmitter":26}],26:[function(require,module,exports){
+},{"marsdb/dist/AsyncEventEmitter":27}],27:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -2432,7 +2670,7 @@ var AsyncEventEmitter = function (_EventEmitter) {
 }(_eventemitter2.default);
 
 exports.default = AsyncEventEmitter;
-},{"eventemitter3":11}],27:[function(require,module,exports){
+},{"eventemitter3":12}],28:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -2582,7 +2820,5 @@ var PromiseQueue = function () {
 }();
 
 exports.default = PromiseQueue;
-},{"double-ended-queue":10,"fast.js/function/try":28}],28:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}]},{},[9])(9)
+},{"double-ended-queue":11,"fast.js/function/try":20}]},{},[10])(10)
 });

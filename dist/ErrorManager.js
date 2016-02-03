@@ -10,14 +10,6 @@ var _bind2 = require('fast.js/function/bind');
 
 var _bind3 = _interopRequireDefault(_bind2);
 
-var _forEach = require('fast.js/forEach');
-
-var _forEach2 = _interopRequireDefault(_forEach);
-
-var _invariant = require('invariant');
-
-var _invariant2 = _interopRequireDefault(_invariant);
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }

@@ -7,9 +7,16 @@ var _get = function get(object, property, receiver) { if (object === null) objec
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports._isCacheValid = _isCacheValid;
 exports.createCursorWithSub = createCursorWithSub;
 
+var _keys2 = require('fast.js/object/keys');
+
+var _keys3 = _interopRequireDefault(_keys2);
+
 var _marsdb = require('marsdb');
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
@@ -19,6 +26,24 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
+// Internals
+function _isCacheValid(tryCache, result) {
+  var resolveCache = false;
+  if (typeof tryCache === 'function') {
+    resolveCache = tryCache(result);
+  } else if (Array.isArray(result) && result.length > 0 || Object.prototype.toString.call(result) === '[object Object]' && (0, _keys3.default)(result).length > 0) {
+    resolveCache = true;
+  }
+  return resolveCache;
+}
+
+/**
+ * Creates a Cursor class based on current default crusor class.
+ * Created class adds support of `sub` field of options for
+ * automatically subscribe/unsubscribe.
+ * @param  {DDPConnection} connection
+ * @return {Cursor}
+ */
 function createCursorWithSub(connection) {
   var _currentCursorClass = _marsdb.Collection.defaultCursor();
 
@@ -31,27 +56,24 @@ function createCursorWithSub(connection) {
     _inherits(CursorWithSub, _currentCursorClass2);
 
     function CursorWithSub() {
-      var _Object$getPrototypeO;
-
       _classCallCheck(this, CursorWithSub);
 
-      for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
-        args[_key] = arguments[_key];
-      }
-
-      return _possibleConstructorReturn(this, (_Object$getPrototypeO = Object.getPrototypeOf(CursorWithSub)).call.apply(_Object$getPrototypeO, [this].concat(args)));
+      return _possibleConstructorReturn(this, Object.getPrototypeOf(CursorWithSub).apply(this, arguments));
     }
 
     _createClass(CursorWithSub, [{
       key: '_doUpdate',
-      value: function _doUpdate() {
+      value: function _doUpdate(firstRun) {
         var _this2 = this;
 
-        for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-          args[_key2] = arguments[_key2];
-        }
+        var _options = this.options;
+        var sub = _options.sub;
+        var waitReady = _options.waitReady;
+        var tryCache = _options.tryCache;
 
-        var sub = this.options.sub;
+        var superUpdate = function superUpdate() {
+          return _get(Object.getPrototypeOf(CursorWithSub.prototype), '_doUpdate', _this2).call(_this2, firstRun);
+        };
 
         if (!this._subscription && sub) {
           var _connection$subManage;
@@ -63,16 +85,23 @@ function createCursorWithSub(connection) {
             delete _this2._subscription;
           });
 
-          return this._subscription.ready().then(function () {
-            var _get2;
-
-            return (_get2 = _get(Object.getPrototypeOf(CursorWithSub.prototype), '_doUpdate', _this2)).call.apply(_get2, [_this2].concat(args));
-          });
-        } else {
-          var _get3;
-
-          return (_get3 = _get(Object.getPrototypeOf(CursorWithSub.prototype), '_doUpdate', this)).call.apply(_get3, [this].concat(args));
+          if (waitReady) {
+            return this._subscription.ready().then(superUpdate);
+          } else if (tryCache) {
+            return this.exec().then(function (result) {
+              if (_isCacheValid(tryCache, result)) {
+                _this2._updateLatestIds();
+                return _this2._propagateUpdate(firstRun).then(function () {
+                  return result;
+                });
+              } else {
+                return _this2._subscription.ready().then(superUpdate);
+              }
+            });
+          }
         }
+
+        return superUpdate();
       }
     }]);
 
