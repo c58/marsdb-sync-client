@@ -5,14 +5,13 @@
   "contributors": [
     "Artem Artemev"
   ],
-  "description": "Standalone Meteor client based on MarsDB",
+  "description": "Standalone Meteor DDP client based on MarsDB",
   "keywords": [
-    "mongo",
+    "client",
     "minimongo",
-    "embedded",
+    "marsdb",
     "meteor",
-    "db",
-    "database",
+    "ddp",
     "meteor"
   ],
   "homepage": "https://github.com/c58/marsdb-sync-client",
