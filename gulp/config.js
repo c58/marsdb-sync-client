@@ -6,8 +6,8 @@ module.exports = {
   build: 'build',
 
   browser: {
-    bundleName: 'marsdb.meteor.js',
-    bundleMinName: 'marsdb.meteor.min.js',
+    bundleName: 'marsdb.sync.js',
+    bundleMinName: 'marsdb.sync.min.js',
     entry: 'index.js',
     entryTests: 'browser_tests.js',
   }

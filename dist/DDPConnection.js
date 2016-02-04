@@ -15,17 +15,7 @@ var _bind2 = require('fast.js/function/bind');
 
 var _bind3 = _interopRequireDefault(_bind2);
 
-var _marsdb = require('marsdb');
-
-var _PromiseQueue = require('marsdb/dist/PromiseQueue');
-
-var _PromiseQueue2 = _interopRequireDefault(_PromiseQueue);
-
-var _AsyncEventEmitter2 = require('marsdb/dist/AsyncEventEmitter');
-
-var _AsyncEventEmitter3 = _interopRequireDefault(_AsyncEventEmitter2);
-
-var _HeartbeatManager = require('marsdb-sync-server/dist/HeartbeatManager');
+var _HeartbeatManager = require('./HeartbeatManager');
 
 var _HeartbeatManager2 = _interopRequireDefault(_HeartbeatManager);
 
@@ -36,6 +26,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var EventEmitter = typeof window !== 'undefined' && window.Mars ? window.Mars.EventEmitter : require('marsdb').EventEmitter;
+var PromiseQueue = typeof window !== 'undefined' && window.Mars ? window.Mars.PromiseQueue : require('marsdb').PromiseQueue;
+var EJSON = typeof window !== 'undefined' && window.Mars ? window.Mars.EJSON : require('marsdb').EJSON;
+var Random = typeof window !== 'undefined' && window.Mars ? window.Mars.Random : require('marsdb').Random;
 
 // Status of a DDP connection
 var DDP_VERSION = 1;
@@ -48,8 +43,8 @@ var CONN_STATUS = exports.CONN_STATUS = {
   DISCONNECTED: 'DISCONNECTED'
 };
 
-var DDPConnection = function (_AsyncEventEmitter) {
-  _inherits(DDPConnection, _AsyncEventEmitter);
+var DDPConnection = function (_EventEmitter) {
+  _inherits(DDPConnection, _EventEmitter);
 
   function DDPConnection(_ref) {
     var url = _ref.url;
@@ -63,7 +58,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(DDPConnection).call(this));
 
     _this.url = url;
-    _this._queue = new _PromiseQueue2.default(1);
+    _this._queue = new PromiseQueue(1);
     _this._sessionId = null;
     _this._autoReconnect = autoReconnect;
     _this._socket = socket;
@@ -156,7 +151,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
     value: function sendPing() {
       this._sendMessage({
         msg: 'ping',
-        id: _marsdb.Random.default().id(20)
+        id: Random.default().id(20)
       });
     }
 
@@ -285,14 +280,10 @@ var DDPConnection = function (_AsyncEventEmitter) {
       var _this4 = this;
 
       return this._queue.add(function () {
-        var res = (0, _try3.default)(function () {
-          var msgObj = _marsdb.EJSON.parse(rawMsg.data);
-          return _this4._processMessage(msgObj);
-        });
-        if (res instanceof Error) {
-          return _this4._handleError(res);
-        }
-        return res;
+        var msgObj = EJSON.parse(rawMsg.data);
+        return _this4._processMessage(msgObj);
+      }).then(null, function (err) {
+        _this4._handleError(err);
       });
     }
   }, {
@@ -324,7 +315,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
       var _this5 = this;
 
       var result = (0, _try3.default)(function () {
-        return _this5._rawConn.send(_marsdb.EJSON.stringify(msgObj));
+        return _this5._rawConn.send(EJSON.stringify(msgObj));
       });
       if (result instanceof Error) {
         this._handleError(result);
@@ -355,6 +346,6 @@ var DDPConnection = function (_AsyncEventEmitter) {
   }]);
 
   return DDPConnection;
-}(_AsyncEventEmitter3.default);
+}(EventEmitter);
 
 exports.default = DDPConnection;

@@ -21,10 +21,6 @@ var _keys2 = require('fast.js/object/keys');
 
 var _keys3 = _interopRequireDefault(_keys2);
 
-var _marsdb = require('marsdb');
-
-var _marsdb2 = _interopRequireDefault(_marsdb);
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -33,8 +29,10 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
+var Collection = typeof window !== 'undefined' && window.Mars ? window.Mars.Collection : require('marsdb').Collection;
+
 function createCollectionDelegate(connection) {
-  var _currentDelegateClass = _marsdb2.default.defaultDelegate();
+  var _currentDelegateClass = Collection.defaultDelegate();
 
   /**
    * Collection manager is a factory for Mars.Collection
@@ -125,15 +123,15 @@ function createCollectionDelegate(connection) {
           var methodName = '/' + this.db.modelName + '/update';
           var handleUpdateError = function handleUpdateError(e) {
             return localUpdate.then(function (res) {
-              if (res.inserted) {
-                _this4.db.remove(res.inserted._id, { quiet: true });
-              } else {
-                (0, _forEach2.default)(res.original, function (d) {
-                  var docId = d._id;
-                  delete d._id;
-                  _this4.db.update({ _id: docId }, d, { quiet: true, upsert: true });
-                });
-              }
+              (0, _forEach2.default)(res.updated, function (d, i) {
+                if (!res.original[i]) {
+                  _this4.db.remove(d._id, { quiet: true });
+                } else {
+                  var docId = res.original[i]._id;
+                  delete res.original[i]._id;
+                  _this4.db.update({ _id: docId }, res.original[i], { quiet: true, upsert: true });
+                }
+              });
             }).then(function () {
               throw e;
             });

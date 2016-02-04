@@ -22,10 +22,6 @@ var _keys2 = require('fast.js/object/keys');
 
 var _keys3 = _interopRequireDefault(_keys2);
 
-var _marsdb = require('marsdb');
-
-var _marsdb2 = _interopRequireDefault(_marsdb);
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -34,8 +30,10 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
+var Collection = typeof window !== 'undefined' && window.Mars ? window.Mars.Collection : require('marsdb').Collection;
+
 function createCollectionDelegate(connection) {
-  var _currentDelegateClass = _marsdb2.default.defaultDelegate();
+  var _currentDelegateClass = Collection.defaultDelegate();
 
   /**
    * Collection manager is a factory for Mars.Collection
@@ -126,15 +124,15 @@ function createCollectionDelegate(connection) {
           var methodName = '/' + this.db.modelName + '/update';
           var handleUpdateError = function handleUpdateError(e) {
             return localUpdate.then(function (res) {
-              if (res.inserted) {
-                _this4.db.remove(res.inserted._id, { quiet: true });
-              } else {
-                (0, _forEach2.default)(res.original, function (d) {
-                  var docId = d._id;
-                  delete d._id;
-                  _this4.db.update({ _id: docId }, d, { quiet: true, upsert: true });
-                });
-              }
+              (0, _forEach2.default)(res.updated, function (d, i) {
+                if (!res.original[i]) {
+                  _this4.db.remove(d._id, { quiet: true });
+                } else {
+                  var docId = res.original[i]._id;
+                  delete res.original[i]._id;
+                  _this4.db.update({ _id: docId }, res.original[i], { quiet: true, upsert: true });
+                }
+              });
             }).then(function () {
               throw e;
             });
@@ -218,7 +216,7 @@ function createCollectionDelegate(connection) {
 
   return CollectionManager;
 }
-},{"fast.js/forEach":15,"fast.js/function/bind":18,"fast.js/object/keys":23,"marsdb":undefined}],2:[function(require,module,exports){
+},{"fast.js/forEach":14,"fast.js/function/bind":17,"fast.js/object/keys":22,"marsdb":undefined}],2:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -235,8 +233,6 @@ var _keys2 = require('fast.js/object/keys');
 
 var _keys3 = _interopRequireDefault(_keys2);
 
-var _marsdb = require('marsdb');
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
@@ -246,6 +242,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var Collection = typeof window !== 'undefined' && window.Mars ? window.Mars.Collection : require('marsdb').Collection;
 
 // Internals
 function _isCacheValid(tryCache, result) {
@@ -266,7 +264,7 @@ function _isCacheValid(tryCache, result) {
  * @return {Cursor}
  */
 function createCursorWithSub(connection) {
-  var _currentCursorClass = _marsdb.Collection.defaultCursor();
+  var _currentCursorClass = Collection.defaultCursor();
 
   /**
    * Cursor that automatically subscribe and unsubscribe
@@ -331,7 +329,7 @@ function createCursorWithSub(connection) {
 
   return CursorWithSub;
 }
-},{"fast.js/object/keys":23,"marsdb":undefined}],3:[function(require,module,exports){
+},{"fast.js/object/keys":22,"marsdb":undefined}],3:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -349,17 +347,7 @@ var _bind2 = require('fast.js/function/bind');
 
 var _bind3 = _interopRequireDefault(_bind2);
 
-var _marsdb = require('marsdb');
-
-var _PromiseQueue = require('marsdb/dist/PromiseQueue');
-
-var _PromiseQueue2 = _interopRequireDefault(_PromiseQueue);
-
-var _AsyncEventEmitter2 = require('marsdb/dist/AsyncEventEmitter');
-
-var _AsyncEventEmitter3 = _interopRequireDefault(_AsyncEventEmitter2);
-
-var _HeartbeatManager = require('marsdb-sync-server/dist/HeartbeatManager');
+var _HeartbeatManager = require('./HeartbeatManager');
 
 var _HeartbeatManager2 = _interopRequireDefault(_HeartbeatManager);
 
@@ -370,6 +358,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var EventEmitter = typeof window !== 'undefined' && window.Mars ? window.Mars.EventEmitter : require('marsdb').EventEmitter;
+var PromiseQueue = typeof window !== 'undefined' && window.Mars ? window.Mars.PromiseQueue : require('marsdb').PromiseQueue;
+var EJSON = typeof window !== 'undefined' && window.Mars ? window.Mars.EJSON : require('marsdb').EJSON;
+var Random = typeof window !== 'undefined' && window.Mars ? window.Mars.Random : require('marsdb').Random;
 
 // Status of a DDP connection
 var DDP_VERSION = 1;
@@ -382,8 +375,8 @@ var CONN_STATUS = exports.CONN_STATUS = {
   DISCONNECTED: 'DISCONNECTED'
 };
 
-var DDPConnection = function (_AsyncEventEmitter) {
-  _inherits(DDPConnection, _AsyncEventEmitter);
+var DDPConnection = function (_EventEmitter) {
+  _inherits(DDPConnection, _EventEmitter);
 
   function DDPConnection(_ref) {
     var url = _ref.url;
@@ -397,7 +390,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(DDPConnection).call(this));
 
     _this.url = url;
-    _this._queue = new _PromiseQueue2.default(1);
+    _this._queue = new PromiseQueue(1);
     _this._sessionId = null;
     _this._autoReconnect = autoReconnect;
     _this._socket = socket;
@@ -490,7 +483,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
     value: function sendPing() {
       this._sendMessage({
         msg: 'ping',
-        id: _marsdb.Random.default().id(20)
+        id: Random.default().id(20)
       });
     }
 
@@ -619,14 +612,10 @@ var DDPConnection = function (_AsyncEventEmitter) {
       var _this4 = this;
 
       return this._queue.add(function () {
-        var res = (0, _try3.default)(function () {
-          var msgObj = _marsdb.EJSON.parse(rawMsg.data);
-          return _this4._processMessage(msgObj);
-        });
-        if (res instanceof Error) {
-          return _this4._handleError(res);
-        }
-        return res;
+        var msgObj = EJSON.parse(rawMsg.data);
+        return _this4._processMessage(msgObj);
+      }).then(null, function (err) {
+        _this4._handleError(err);
       });
     }
   }, {
@@ -658,7 +647,7 @@ var DDPConnection = function (_AsyncEventEmitter) {
       var _this5 = this;
 
       var result = (0, _try3.default)(function () {
-        return _this5._rawConn.send(_marsdb.EJSON.stringify(msgObj));
+        return _this5._rawConn.send(EJSON.stringify(msgObj));
       });
       if (result instanceof Error) {
         this._handleError(result);
@@ -689,10 +678,10 @@ var DDPConnection = function (_AsyncEventEmitter) {
   }]);
 
   return DDPConnection;
-}(_AsyncEventEmitter3.default);
+}(EventEmitter);
 
 exports.default = DDPConnection;
-},{"fast.js/function/bind":18,"fast.js/function/try":20,"marsdb":undefined,"marsdb-sync-server/dist/HeartbeatManager":26,"marsdb/dist/AsyncEventEmitter":27,"marsdb/dist/PromiseQueue":28}],4:[function(require,module,exports){
+},{"./HeartbeatManager":5,"fast.js/function/bind":17,"fast.js/function/try":19,"marsdb":undefined}],4:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -738,7 +727,90 @@ var ErrorManager = function () {
 }();
 
 exports.default = ErrorManager;
-},{"fast.js/function/bind":18}],5:[function(require,module,exports){
+},{"fast.js/function/bind":17}],5:[function(require,module,exports){
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var EventEmitter = typeof window !== 'undefined' && window.Mars ? window.Mars.EventEmitter : require('marsdb').EventEmitter;
+
+/**
+ * Manages a heartbeat with a client
+ */
+
+var HeartbeatManager = function (_EventEmitter) {
+  _inherits(HeartbeatManager, _EventEmitter);
+
+  function HeartbeatManager() {
+    var pingTimeout = arguments.length <= 0 || arguments[0] === undefined ? 17500 : arguments[0];
+    var pongTimeout = arguments.length <= 1 || arguments[1] === undefined ? 10000 : arguments[1];
+
+    _classCallCheck(this, HeartbeatManager);
+
+    var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(HeartbeatManager).call(this));
+
+    _this.pingTimeout = pingTimeout;
+    _this.pongTimeout = pongTimeout;
+    return _this;
+  }
+
+  _createClass(HeartbeatManager, [{
+    key: 'waitPing',
+    value: function waitPing() {
+      var _this2 = this;
+
+      this._clearTimers();
+      this.waitPingTimer = setTimeout(function () {
+        _this2.emit('sendPing');
+        _this2.waitPong();
+      }, this.pingTimeout);
+    }
+  }, {
+    key: 'waitPong',
+    value: function waitPong() {
+      var _this3 = this;
+
+      this._clearTimers();
+      this.waitPongTimer = setTimeout(function () {
+        return _this3.emit('timeout');
+      }, this.pongTimeout);
+    }
+  }, {
+    key: 'handlePing',
+    value: function handlePing(id) {
+      this._clearTimers();
+      this.emit('sendPong', id);
+      this.waitPing();
+    }
+  }, {
+    key: 'handlePong',
+    value: function handlePong() {
+      this._clearTimers();
+      this.waitPing();
+    }
+  }, {
+    key: '_clearTimers',
+    value: function _clearTimers() {
+      clearTimeout(this.waitPingTimer);
+      clearTimeout(this.waitPongTimer);
+    }
+  }]);
+
+  return HeartbeatManager;
+}(EventEmitter);
+
+exports.default = HeartbeatManager;
+},{"marsdb":undefined}],6:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -752,8 +824,6 @@ var _bind2 = require('fast.js/function/bind');
 
 var _bind3 = _interopRequireDefault(_bind2);
 
-var _marsdb = require('marsdb');
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -761,6 +831,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var EventEmitter = typeof window !== 'undefined' && window.Mars ? window.Mars.EventEmitter : require('marsdb').EventEmitter;
+var Random = typeof window !== 'undefined' && window.Mars ? window.Mars.Random : require('marsdb').Random;
 
 // Method call statuses
 var CALL_STATUS = exports.CALL_STATUS = {
@@ -781,7 +854,7 @@ var MethodCall = function (_EventEmitter) {
 
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(MethodCall).call(this));
 
-    _this.id = _marsdb.Random.default().id(20);
+    _this.id = Random.default().id(20);
     _this.result = (0, _bind3.default)(_this.result, _this);
     _this.updated = (0, _bind3.default)(_this.updated, _this);
 
@@ -866,10 +939,10 @@ var MethodCall = function (_EventEmitter) {
   }]);
 
   return MethodCall;
-}(_marsdb.EventEmitter);
+}(EventEmitter);
 
 exports.default = MethodCall;
-},{"fast.js/function/bind":18,"marsdb":undefined}],6:[function(require,module,exports){
+},{"fast.js/function/bind":17,"marsdb":undefined}],7:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -995,7 +1068,7 @@ var MethodCallManager = function () {
 }();
 
 exports.default = MethodCallManager;
-},{"./MethodCall":5,"fast.js/forEach":15,"fast.js/function/bind":18}],7:[function(require,module,exports){
+},{"./MethodCall":6,"fast.js/forEach":14,"fast.js/function/bind":17}],8:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -1003,15 +1076,15 @@ var _createClass = function () { function defineProperties(target, props) { for 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.SUB_STATUS = undefined;
-
-var _marsdb = require('marsdb');
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var EventEmitter = typeof window !== 'undefined' && window.Mars ? window.Mars.EventEmitter : require('marsdb').EventEmitter;
+var Random = typeof window !== 'undefined' && window.Mars ? window.Mars.Random : require('marsdb').Random;
 
 // Status of the subsctiption
 var SUB_STATUS = exports.SUB_STATUS = {
@@ -1060,7 +1133,7 @@ var Subscription = function (_EventEmitter) {
       }));
     };
 
-    _this.id = _marsdb.Random.default().id(20);
+    _this.id = Random.default().id(20);
     _this.name = name;
     _this.params = params;
     _this._conn = conn;
@@ -1201,10 +1274,10 @@ var Subscription = function (_EventEmitter) {
   }]);
 
   return Subscription;
-}(_marsdb.EventEmitter);
+}(EventEmitter);
 
 exports.default = Subscription;
-},{"marsdb":undefined}],8:[function(require,module,exports){
+},{"marsdb":undefined}],9:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -1221,8 +1294,6 @@ var _forEach = require('fast.js/forEach');
 
 var _forEach2 = _interopRequireDefault(_forEach);
 
-var _marsdb = require('marsdb');
-
 var _Subscription = require('./Subscription');
 
 var _Subscription2 = _interopRequireDefault(_Subscription);
@@ -1234,6 +1305,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var EventEmitter = typeof window !== 'undefined' && window.Mars ? window.Mars.EventEmitter : require('marsdb').EventEmitter;
 
 // Internals
 var STOP_SUB_DELAY = 15000;
@@ -1402,10 +1475,10 @@ var SubscriptionManager = function (_EventEmitter) {
   }]);
 
   return SubscriptionManager;
-}(_marsdb.EventEmitter);
+}(EventEmitter);
 
 exports.default = SubscriptionManager;
-},{"./Subscription":7,"fast.js/forEach":15,"fast.js/function/bind":18,"marsdb":undefined}],9:[function(require,module,exports){
+},{"./Subscription":8,"fast.js/forEach":14,"fast.js/function/bind":17,"marsdb":undefined}],10:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1424,10 +1497,6 @@ var _map3 = _interopRequireDefault(_map2);
 var _invariant = require('invariant');
 
 var _invariant2 = _interopRequireDefault(_invariant);
-
-var _marsdb = require('marsdb');
-
-var _marsdb2 = _interopRequireDefault(_marsdb);
 
 var _DDPConnection = require('./DDPConnection');
 
@@ -1450,6 +1519,8 @@ var _CollectionManager = require('./CollectionManager');
 var _CursorWithSub = require('./CursorWithSub');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var Collection = typeof window !== 'undefined' && window.Mars ? window.Mars.Collection : require('marsdb').Collection;
 
 // Internals
 var _connection = null;
@@ -1492,11 +1563,11 @@ function configure(_ref) {
   _connection.customManagers = (0, _map3.default)(managers, function (x) {
     return new x(_connection);
   });
-  _marsdb2.default.defaultDelegate((0, _CollectionManager.createCollectionDelegate)(_connection));
-  _marsdb2.default.defaultCursor((0, _CursorWithSub.createCursorWithSub)(_connection));
+  Collection.defaultDelegate((0, _CollectionManager.createCollectionDelegate)(_connection));
+  Collection.defaultCursor((0, _CursorWithSub.createCursorWithSub)(_connection));
   return _connection;
 }
-},{"./CollectionManager":1,"./CursorWithSub":2,"./DDPConnection":3,"./ErrorManager":4,"./MethodCallManager":6,"./SubscriptionManager":8,"fast.js/map":21,"invariant":25,"marsdb":undefined}],10:[function(require,module,exports){
+},{"./CollectionManager":1,"./CursorWithSub":2,"./DDPConnection":3,"./ErrorManager":4,"./MethodCallManager":7,"./SubscriptionManager":9,"fast.js/map":20,"invariant":24,"marsdb":undefined}],11:[function(require,module,exports){
 const client = require('./dist');
 module.exports = {
   configure: client.configure,
@@ -1505,560 +1576,7 @@ module.exports = {
   subscribe: client.subsctibe,
 };
 
-},{"./dist":9}],11:[function(require,module,exports){
-/**
- * Copyright (c) 2013 Petka Antonov
- * 
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:</p>
- * 
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-"use strict";
-function Deque(capacity) {
-    this._capacity = getCapacity(capacity);
-    this._length = 0;
-    this._front = 0;
-    this._makeCapacity();
-    if (isArray(capacity)) {
-        var len = capacity.length;
-        for (var i = 0; i < len; ++i) {
-            this[i] = capacity[i];
-        }
-        this._length = len;
-    }
-}
-
-Deque.prototype.toArray = function Deque$toArray() {
-    var len = this._length;
-    var ret = new Array(len);
-    var front = this._front;
-    var capacity = this._capacity;
-    for (var j = 0; j < len; ++j) {
-        ret[j] = this[(front + j) & (capacity - 1)];
-    }
-    return ret;
-};
-
-Deque.prototype.push = function Deque$push(item) {
-    var argsLength = arguments.length;
-    var length = this._length;
-    if (argsLength > 1) {
-        var capacity = this._capacity;
-        if (length + argsLength > capacity) {
-            for (var i = 0; i < argsLength; ++i) {
-                this._checkCapacity(length + 1);
-                var j = (this._front + length) & (this._capacity - 1);
-                this[j] = arguments[i];
-                length++;
-                this._length = length;
-            }
-            return length;
-        }
-        else {
-            var j = this._front;
-            for (var i = 0; i < argsLength; ++i) {
-                this[(j + length) & (capacity - 1)] = arguments[i];
-                j++;
-            }
-            this._length = length + argsLength;
-            return length + argsLength;
-        }
-
-    }
-
-    if (argsLength === 0) return length;
-
-    this._checkCapacity(length + 1);
-    var i = (this._front + length) & (this._capacity - 1);
-    this[i] = item;
-    this._length = length + 1;
-    return length + 1;
-};
-
-Deque.prototype.pop = function Deque$pop() {
-    var length = this._length;
-    if (length === 0) {
-        return void 0;
-    }
-    var i = (this._front + length - 1) & (this._capacity - 1);
-    var ret = this[i];
-    this[i] = void 0;
-    this._length = length - 1;
-    return ret;
-};
-
-Deque.prototype.shift = function Deque$shift() {
-    var length = this._length;
-    if (length === 0) {
-        return void 0;
-    }
-    var front = this._front;
-    var ret = this[front];
-    this[front] = void 0;
-    this._front = (front + 1) & (this._capacity - 1);
-    this._length = length - 1;
-    return ret;
-};
-
-Deque.prototype.unshift = function Deque$unshift(item) {
-    var length = this._length;
-    var argsLength = arguments.length;
-
-
-    if (argsLength > 1) {
-        var capacity = this._capacity;
-        if (length + argsLength > capacity) {
-            for (var i = argsLength - 1; i >= 0; i--) {
-                this._checkCapacity(length + 1);
-                var capacity = this._capacity;
-                var j = (((( this._front - 1 ) &
-                    ( capacity - 1) ) ^ capacity ) - capacity );
-                this[j] = arguments[i];
-                length++;
-                this._length = length;
-                this._front = j;
-            }
-            return length;
-        }
-        else {
-            var front = this._front;
-            for (var i = argsLength - 1; i >= 0; i--) {
-                var j = (((( front - 1 ) &
-                    ( capacity - 1) ) ^ capacity ) - capacity );
-                this[j] = arguments[i];
-                front = j;
-            }
-            this._front = front;
-            this._length = length + argsLength;
-            return length + argsLength;
-        }
-    }
-
-    if (argsLength === 0) return length;
-
-    this._checkCapacity(length + 1);
-    var capacity = this._capacity;
-    var i = (((( this._front - 1 ) &
-        ( capacity - 1) ) ^ capacity ) - capacity );
-    this[i] = item;
-    this._length = length + 1;
-    this._front = i;
-    return length + 1;
-};
-
-Deque.prototype.peekBack = function Deque$peekBack() {
-    var length = this._length;
-    if (length === 0) {
-        return void 0;
-    }
-    var index = (this._front + length - 1) & (this._capacity - 1);
-    return this[index];
-};
-
-Deque.prototype.peekFront = function Deque$peekFront() {
-    if (this._length === 0) {
-        return void 0;
-    }
-    return this[this._front];
-};
-
-Deque.prototype.get = function Deque$get(index) {
-    var i = index;
-    if ((i !== (i | 0))) {
-        return void 0;
-    }
-    var len = this._length;
-    if (i < 0) {
-        i = i + len;
-    }
-    if (i < 0 || i >= len) {
-        return void 0;
-    }
-    return this[(this._front + i) & (this._capacity - 1)];
-};
-
-Deque.prototype.isEmpty = function Deque$isEmpty() {
-    return this._length === 0;
-};
-
-Deque.prototype.clear = function Deque$clear() {
-    this._length = 0;
-    this._front = 0;
-    this._makeCapacity();
-};
-
-Deque.prototype.toString = function Deque$toString() {
-    return this.toArray().toString();
-};
-
-Deque.prototype.valueOf = Deque.prototype.toString;
-Deque.prototype.removeFront = Deque.prototype.shift;
-Deque.prototype.removeBack = Deque.prototype.pop;
-Deque.prototype.insertFront = Deque.prototype.unshift;
-Deque.prototype.insertBack = Deque.prototype.push;
-Deque.prototype.enqueue = Deque.prototype.push;
-Deque.prototype.dequeue = Deque.prototype.shift;
-Deque.prototype.toJSON = Deque.prototype.toArray;
-
-Object.defineProperty(Deque.prototype, "length", {
-    get: function() {
-        return this._length;
-    },
-    set: function() {
-        throw new RangeError("");
-    }
-});
-
-Deque.prototype._makeCapacity = function Deque$_makeCapacity() {
-    var len = this._capacity;
-    for (var i = 0; i < len; ++i) {
-        this[i] = void 0;
-    }
-};
-
-Deque.prototype._checkCapacity = function Deque$_checkCapacity(size) {
-    if (this._capacity < size) {
-        this._resizeTo(getCapacity(this._capacity * 1.5 + 16));
-    }
-};
-
-Deque.prototype._resizeTo = function Deque$_resizeTo(capacity) {
-    var oldFront = this._front;
-    var oldCapacity = this._capacity;
-    var oldDeque = new Array(oldCapacity);
-    var length = this._length;
-
-    arrayCopy(this, 0, oldDeque, 0, oldCapacity);
-    this._capacity = capacity;
-    this._makeCapacity();
-    this._front = 0;
-    if (oldFront + length <= oldCapacity) {
-        arrayCopy(oldDeque, oldFront, this, 0, length);
-    } else {        var lengthBeforeWrapping =
-            length - ((oldFront + length) & (oldCapacity - 1));
-
-        arrayCopy(oldDeque, oldFront, this, 0, lengthBeforeWrapping);
-        arrayCopy(oldDeque, 0, this, lengthBeforeWrapping,
-            length - lengthBeforeWrapping);
-    }
-};
-
-
-var isArray = Array.isArray;
-
-function arrayCopy(src, srcIndex, dst, dstIndex, len) {
-    for (var j = 0; j < len; ++j) {
-        dst[j + dstIndex] = src[j + srcIndex];
-    }
-}
-
-function pow2AtLeast(n) {
-    n = n >>> 0;
-    n = n - 1;
-    n = n | (n >> 1);
-    n = n | (n >> 2);
-    n = n | (n >> 4);
-    n = n | (n >> 8);
-    n = n | (n >> 16);
-    return n + 1;
-}
-
-function getCapacity(capacity) {
-    if (typeof capacity !== "number") {
-        if (isArray(capacity)) {
-            capacity = capacity.length;
-        }
-        else {
-            return 16;
-        }
-    }
-    return pow2AtLeast(
-        Math.min(
-            Math.max(16, capacity), 1073741824)
-    );
-}
-
-module.exports = Deque;
-
-},{}],12:[function(require,module,exports){
-'use strict';
-
-//
-// We store our EE objects in a plain object whose properties are event names.
-// If `Object.create(null)` is not supported we prefix the event names with a
-// `~` to make sure that the built-in object properties are not overridden or
-// used as an attack vector.
-// We also assume that `Object.create(null)` is available when the event name
-// is an ES6 Symbol.
-//
-var prefix = typeof Object.create !== 'function' ? '~' : false;
-
-/**
- * Representation of a single EventEmitter function.
- *
- * @param {Function} fn Event handler to be called.
- * @param {Mixed} context Context for function execution.
- * @param {Boolean} once Only emit once
- * @api private
- */
-function EE(fn, context, once) {
-  this.fn = fn;
-  this.context = context;
-  this.once = once || false;
-}
-
-/**
- * Minimal EventEmitter interface that is molded against the Node.js
- * EventEmitter interface.
- *
- * @constructor
- * @api public
- */
-function EventEmitter() { /* Nothing to set */ }
-
-/**
- * Holds the assigned EventEmitters by name.
- *
- * @type {Object}
- * @private
- */
-EventEmitter.prototype._events = undefined;
-
-/**
- * Return a list of assigned event listeners.
- *
- * @param {String} event The events that should be listed.
- * @param {Boolean} exists We only need to know if there are listeners.
- * @returns {Array|Boolean}
- * @api public
- */
-EventEmitter.prototype.listeners = function listeners(event, exists) {
-  var evt = prefix ? prefix + event : event
-    , available = this._events && this._events[evt];
-
-  if (exists) return !!available;
-  if (!available) return [];
-  if (available.fn) return [available.fn];
-
-  for (var i = 0, l = available.length, ee = new Array(l); i < l; i++) {
-    ee[i] = available[i].fn;
-  }
-
-  return ee;
-};
-
-/**
- * Emit an event to all registered event listeners.
- *
- * @param {String} event The name of the event.
- * @returns {Boolean} Indication if we've emitted an event.
- * @api public
- */
-EventEmitter.prototype.emit = function emit(event, a1, a2, a3, a4, a5) {
-  var evt = prefix ? prefix + event : event;
-
-  if (!this._events || !this._events[evt]) return false;
-
-  var listeners = this._events[evt]
-    , len = arguments.length
-    , args
-    , i;
-
-  if ('function' === typeof listeners.fn) {
-    if (listeners.once) this.removeListener(event, listeners.fn, undefined, true);
-
-    switch (len) {
-      case 1: return listeners.fn.call(listeners.context), true;
-      case 2: return listeners.fn.call(listeners.context, a1), true;
-      case 3: return listeners.fn.call(listeners.context, a1, a2), true;
-      case 4: return listeners.fn.call(listeners.context, a1, a2, a3), true;
-      case 5: return listeners.fn.call(listeners.context, a1, a2, a3, a4), true;
-      case 6: return listeners.fn.call(listeners.context, a1, a2, a3, a4, a5), true;
-    }
-
-    for (i = 1, args = new Array(len -1); i < len; i++) {
-      args[i - 1] = arguments[i];
-    }
-
-    listeners.fn.apply(listeners.context, args);
-  } else {
-    var length = listeners.length
-      , j;
-
-    for (i = 0; i < length; i++) {
-      if (listeners[i].once) this.removeListener(event, listeners[i].fn, undefined, true);
-
-      switch (len) {
-        case 1: listeners[i].fn.call(listeners[i].context); break;
-        case 2: listeners[i].fn.call(listeners[i].context, a1); break;
-        case 3: listeners[i].fn.call(listeners[i].context, a1, a2); break;
-        default:
-          if (!args) for (j = 1, args = new Array(len -1); j < len; j++) {
-            args[j - 1] = arguments[j];
-          }
-
-          listeners[i].fn.apply(listeners[i].context, args);
-      }
-    }
-  }
-
-  return true;
-};
-
-/**
- * Register a new EventListener for the given event.
- *
- * @param {String} event Name of the event.
- * @param {Functon} fn Callback function.
- * @param {Mixed} context The context of the function.
- * @api public
- */
-EventEmitter.prototype.on = function on(event, fn, context) {
-  var listener = new EE(fn, context || this)
-    , evt = prefix ? prefix + event : event;
-
-  if (!this._events) this._events = prefix ? {} : Object.create(null);
-  if (!this._events[evt]) this._events[evt] = listener;
-  else {
-    if (!this._events[evt].fn) this._events[evt].push(listener);
-    else this._events[evt] = [
-      this._events[evt], listener
-    ];
-  }
-
-  return this;
-};
-
-/**
- * Add an EventListener that's only called once.
- *
- * @param {String} event Name of the event.
- * @param {Function} fn Callback function.
- * @param {Mixed} context The context of the function.
- * @api public
- */
-EventEmitter.prototype.once = function once(event, fn, context) {
-  var listener = new EE(fn, context || this, true)
-    , evt = prefix ? prefix + event : event;
-
-  if (!this._events) this._events = prefix ? {} : Object.create(null);
-  if (!this._events[evt]) this._events[evt] = listener;
-  else {
-    if (!this._events[evt].fn) this._events[evt].push(listener);
-    else this._events[evt] = [
-      this._events[evt], listener
-    ];
-  }
-
-  return this;
-};
-
-/**
- * Remove event listeners.
- *
- * @param {String} event The event we want to remove.
- * @param {Function} fn The listener that we need to find.
- * @param {Mixed} context Only remove listeners matching this context.
- * @param {Boolean} once Only remove once listeners.
- * @api public
- */
-EventEmitter.prototype.removeListener = function removeListener(event, fn, context, once) {
-  var evt = prefix ? prefix + event : event;
-
-  if (!this._events || !this._events[evt]) return this;
-
-  var listeners = this._events[evt]
-    , events = [];
-
-  if (fn) {
-    if (listeners.fn) {
-      if (
-           listeners.fn !== fn
-        || (once && !listeners.once)
-        || (context && listeners.context !== context)
-      ) {
-        events.push(listeners);
-      }
-    } else {
-      for (var i = 0, length = listeners.length; i < length; i++) {
-        if (
-             listeners[i].fn !== fn
-          || (once && !listeners[i].once)
-          || (context && listeners[i].context !== context)
-        ) {
-          events.push(listeners[i]);
-        }
-      }
-    }
-  }
-
-  //
-  // Reset the array, or remove it completely if we have no more listeners.
-  //
-  if (events.length) {
-    this._events[evt] = events.length === 1 ? events[0] : events;
-  } else {
-    delete this._events[evt];
-  }
-
-  return this;
-};
-
-/**
- * Remove all listeners or only the listeners for the specified event.
- *
- * @param {String} event The event want to remove all listeners for.
- * @api public
- */
-EventEmitter.prototype.removeAllListeners = function removeAllListeners(event) {
-  if (!this._events) return this;
-
-  if (event) delete this._events[prefix ? prefix + event : event];
-  else this._events = prefix ? {} : Object.create(null);
-
-  return this;
-};
-
-//
-// Alias methods names because people roll like that.
-//
-EventEmitter.prototype.off = EventEmitter.prototype.removeListener;
-EventEmitter.prototype.addListener = EventEmitter.prototype.on;
-
-//
-// This function doesn't apply anymore.
-//
-EventEmitter.prototype.setMaxListeners = function setMaxListeners() {
-  return this;
-};
-
-//
-// Expose the prefix.
-//
-EventEmitter.prefixed = prefix;
-
-//
-// Expose the module.
-//
-if ('undefined' !== typeof module) {
-  module.exports = EventEmitter;
-}
-
-},{}],13:[function(require,module,exports){
+},{"./dist":10}],12:[function(require,module,exports){
 'use strict';
 
 var bindInternal3 = require('../function/bindInternal3');
@@ -2081,7 +1599,7 @@ module.exports = function fastForEach (subject, fn, thisContext) {
   }
 };
 
-},{"../function/bindInternal3":19}],14:[function(require,module,exports){
+},{"../function/bindInternal3":18}],13:[function(require,module,exports){
 'use strict';
 
 var bindInternal3 = require('../function/bindInternal3');
@@ -2107,7 +1625,7 @@ module.exports = function fastMap (subject, fn, thisContext) {
   return result;
 };
 
-},{"../function/bindInternal3":19}],15:[function(require,module,exports){
+},{"../function/bindInternal3":18}],14:[function(require,module,exports){
 'use strict';
 
 var forEachArray = require('./array/forEach'),
@@ -2130,7 +1648,7 @@ module.exports = function fastForEach (subject, fn, thisContext) {
     return forEachObject(subject, fn, thisContext);
   }
 };
-},{"./array/forEach":13,"./object/forEach":22}],16:[function(require,module,exports){
+},{"./array/forEach":12,"./object/forEach":21}],15:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2161,7 +1679,7 @@ module.exports = function applyNoContext (subject, args) {
   }
 };
 
-},{}],17:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2192,7 +1710,7 @@ module.exports = function applyWithContext (subject, thisContext, args) {
   }
 };
 
-},{}],18:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 'use strict';
 
 var applyWithContext = require('./applyWithContext');
@@ -2265,7 +1783,7 @@ module.exports = function fastBind (fn, thisContext) {
   }
 };
 
-},{"./applyNoContext":16,"./applyWithContext":17}],19:[function(require,module,exports){
+},{"./applyNoContext":15,"./applyWithContext":16}],18:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2278,7 +1796,7 @@ module.exports = function bindInternal3 (func, thisContext) {
   };
 };
 
-},{}],20:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2315,7 +1833,7 @@ module.exports = function fastTry (fn) {
   }
 };
 
-},{}],21:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 'use strict';
 
 var mapArray = require('./array/map'),
@@ -2339,7 +1857,7 @@ module.exports = function fastMap (subject, fn, thisContext) {
     return mapObject(subject, fn, thisContext);
   }
 };
-},{"./array/map":14,"./object/map":24}],22:[function(require,module,exports){
+},{"./array/map":13,"./object/map":23}],21:[function(require,module,exports){
 'use strict';
 
 var bindInternal3 = require('../function/bindInternal3');
@@ -2364,7 +1882,7 @@ module.exports = function fastForEachObject (subject, fn, thisContext) {
   }
 };
 
-},{"../function/bindInternal3":19}],23:[function(require,module,exports){
+},{"../function/bindInternal3":18}],22:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2382,7 +1900,7 @@ module.exports = typeof Object.keys === "function" ? Object.keys : /* istanbul i
   }
   return keys;
 };
-},{}],24:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 'use strict';
 
 var bindInternal3 = require('../function/bindInternal3');
@@ -2410,7 +1928,7 @@ module.exports = function fastMapObject (subject, fn, thisContext) {
   return result;
 };
 
-},{"../function/bindInternal3":19}],25:[function(require,module,exports){
+},{"../function/bindInternal3":18}],24:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -2463,362 +1981,5 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
 
 module.exports = invariant;
 
-},{}],26:[function(require,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-
-var _AsyncEventEmitter2 = require('marsdb/dist/AsyncEventEmitter');
-
-var _AsyncEventEmitter3 = _interopRequireDefault(_AsyncEventEmitter2);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-/**
- * Manages a heartbeat with a client
- */
-
-var HeartbeatManager = function (_AsyncEventEmitter) {
-  _inherits(HeartbeatManager, _AsyncEventEmitter);
-
-  function HeartbeatManager() {
-    var pingTimeout = arguments.length <= 0 || arguments[0] === undefined ? 17500 : arguments[0];
-    var pongTimeout = arguments.length <= 1 || arguments[1] === undefined ? 10000 : arguments[1];
-
-    _classCallCheck(this, HeartbeatManager);
-
-    var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(HeartbeatManager).call(this));
-
-    _this.pingTimeout = pingTimeout;
-    _this.pongTimeout = pongTimeout;
-    return _this;
-  }
-
-  _createClass(HeartbeatManager, [{
-    key: 'waitPing',
-    value: function waitPing() {
-      var _this2 = this;
-
-      this._clearTimers();
-      this.waitPingTimer = setTimeout(function () {
-        _this2.emit('sendPing');
-        _this2.waitPong();
-      }, this.pingTimeout);
-    }
-  }, {
-    key: 'waitPong',
-    value: function waitPong() {
-      var _this3 = this;
-
-      this._clearTimers();
-      this.waitPongTimer = setTimeout(function () {
-        return _this3.emit('timeout');
-      }, this.pongTimeout);
-    }
-  }, {
-    key: 'handlePing',
-    value: function handlePing(id) {
-      this._clearTimers();
-      this.emit('sendPong', id);
-      this.waitPing();
-    }
-  }, {
-    key: 'handlePong',
-    value: function handlePong() {
-      this._clearTimers();
-      this.waitPing();
-    }
-  }, {
-    key: '_clearTimers',
-    value: function _clearTimers() {
-      clearTimeout(this.waitPingTimer);
-      clearTimeout(this.waitPongTimer);
-    }
-  }]);
-
-  return HeartbeatManager;
-}(_AsyncEventEmitter3.default);
-
-exports.default = HeartbeatManager;
-},{"marsdb/dist/AsyncEventEmitter":27}],27:[function(require,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-
-var _eventemitter = require('eventemitter3');
-
-var _eventemitter2 = _interopRequireDefault(_eventemitter);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-/**
- * Extension of a regular EventEmitter that provides a method
- * that returns a Promise then resolved when all listeners of the event
- * will be resolved.
- */
-/* istanbul ignore next */
-
-var AsyncEventEmitter = function (_EventEmitter) {
-  _inherits(AsyncEventEmitter, _EventEmitter);
-
-  function AsyncEventEmitter() {
-    _classCallCheck(this, AsyncEventEmitter);
-
-    return _possibleConstructorReturn(this, Object.getPrototypeOf(AsyncEventEmitter).apply(this, arguments));
-  }
-
-  _createClass(AsyncEventEmitter, [{
-    key: 'emitAsync',
-
-    /**
-     * Emit an event and return a Promise that will be resolved
-     * when all listeren's Promises will be resolved.
-     * @param  {String} event
-     * @return {Promise}
-     */
-    value: function emitAsync(event, a1, a2, a3, a4, a5) {
-      var prefix = _eventemitter2.default.prefixed;
-      var evt = prefix ? prefix + event : event;
-
-      if (!this._events || !this._events[evt]) {
-        return Promise.resolve();
-      }
-
-      var i = undefined;
-      var listeners = this._events[evt];
-      var len = arguments.length;
-      var args = undefined;
-
-      if ('function' === typeof listeners.fn) {
-        if (listeners.once) {
-          this.removeListener(event, listeners.fn, undefined, true);
-        }
-
-        switch (len) {
-          case 1:
-            return Promise.resolve(listeners.fn.call(listeners.context));
-          case 2:
-            return Promise.resolve(listeners.fn.call(listeners.context, a1));
-          case 3:
-            return Promise.resolve(listeners.fn.call(listeners.context, a1, a2));
-          case 4:
-            return Promise.resolve(listeners.fn.call(listeners.context, a1, a2, a3));
-          case 5:
-            return Promise.resolve(listeners.fn.call(listeners.context, a1, a2, a3, a4));
-          case 6:
-            return Promise.resolve(listeners.fn.call(listeners.context, a1, a2, a3, a4, a5));
-        }
-
-        for (i = 1, args = new Array(len - 1); i < len; i++) {
-          args[i - 1] = arguments[i];
-        }
-
-        return Promise.resolve(listeners.fn.apply(listeners.context, args));
-      } else {
-        var promises = [];
-        var length = listeners.length;
-        var j = undefined;
-
-        for (i = 0; i < length; i++) {
-          if (listeners[i].once) {
-            this.removeListener(event, listeners[i].fn, undefined, true);
-          }
-
-          switch (len) {
-            case 1:
-              promises.push(Promise.resolve(listeners[i].fn.call(listeners[i].context)));break;
-            case 2:
-              promises.push(Promise.resolve(listeners[i].fn.call(listeners[i].context, a1)));break;
-            case 3:
-              promises.push(Promise.resolve(listeners[i].fn.call(listeners[i].context, a1, a2)));break;
-            default:
-              if (!args) {
-                for (j = 1, args = new Array(len - 1); j < len; j++) {
-                  args[j - 1] = arguments[j];
-                }
-              }
-              promises.push(Promise.resolve(listeners[i].fn.apply(listeners[i].context, args)));
-          }
-        }
-
-        return Promise.all(promises);
-      }
-    }
-  }]);
-
-  return AsyncEventEmitter;
-}(_eventemitter2.default);
-
-exports.default = AsyncEventEmitter;
-},{"eventemitter3":12}],28:[function(require,module,exports){
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-
-var _try2 = require('fast.js/function/try');
-
-var _try3 = _interopRequireDefault(_try2);
-
-var _doubleEndedQueue = require('double-ended-queue');
-
-var _doubleEndedQueue2 = _interopRequireDefault(_doubleEndedQueue);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-/**
- * It limits concurrently executed promises
- *
- * @param {Number} [maxPendingPromises=Infinity] max number of concurrently executed promises
- * @param {Number} [maxQueuedPromises=Infinity]  max number of queued promises
- * @constructor
- */
-
-var PromiseQueue = function () {
-  function PromiseQueue() {
-    var maxPendingPromises = arguments.length <= 0 || arguments[0] === undefined ? Infinity : arguments[0];
-    var maxQueuedPromises = arguments.length <= 1 || arguments[1] === undefined ? Infinity : arguments[1];
-
-    _classCallCheck(this, PromiseQueue);
-
-    this.pendingPromises = 0;
-    this.maxPendingPromises = maxPendingPromises;
-    this.maxQueuedPromises = maxQueuedPromises;
-    this.queue = new _doubleEndedQueue2.default();
-    this.length = 0;
-  }
-
-  /**
-   * Pause queue processing
-   */
-
-  _createClass(PromiseQueue, [{
-    key: 'pause',
-    value: function pause() {
-      this._paused = true;
-    }
-
-    /**
-     * Resume queue processing
-     */
-
-  }, {
-    key: 'unpause',
-    value: function unpause() {
-      this._paused = false;
-      this._dequeue();
-    }
-
-    /**
-     * Adds new promise generator in the queue
-     * @param {Function} promiseGenerator
-     */
-
-  }, {
-    key: 'add',
-    value: function add(promiseGenerator) {
-      var _this = this;
-
-      var unshift = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
-
-      return new Promise(function (resolve, reject) {
-        if (_this.length >= _this.maxQueuedPromises) {
-          reject(new Error('Queue limit reached'));
-        } else {
-          var queueItem = {
-            promiseGenerator: promiseGenerator,
-            resolve: resolve,
-            reject: reject
-          };
-
-          if (!unshift) {
-            _this.queue.push(queueItem);
-          } else {
-            _this.queue.unshift(queueItem);
-          }
-
-          _this.length += 1;
-          _this._dequeue();
-        }
-      });
-    }
-
-    /**
-     * Internal queue processor. Starts processing of
-     * the next queued function
-     * @return {Boolean}
-     */
-
-  }, {
-    key: '_dequeue',
-    value: function _dequeue() {
-      var _this2 = this;
-
-      if (this._paused || this.pendingPromises >= this.maxPendingPromises) {
-        return false;
-      }
-
-      var item = this.queue.shift();
-      if (!item) {
-        return false;
-      }
-
-      var result = (0, _try3.default)(function () {
-        _this2.pendingPromises++;
-        return Promise.resolve().then(function () {
-          return item.promiseGenerator();
-        }).then(function (value) {
-          _this2.length--;
-          _this2.pendingPromises--;
-          item.resolve(value);
-          _this2._dequeue();
-        }, function (err) {
-          _this2.length--;
-          _this2.pendingPromises--;
-          item.reject(err);
-          _this2._dequeue();
-        });
-      });
-
-      if (result instanceof Error) {
-        this.length--;
-        this.pendingPromises--;
-        item.reject(result);
-        this._dequeue();
-      }
-
-      return true;
-    }
-  }]);
-
-  return PromiseQueue;
-}();
-
-exports.default = PromiseQueue;
-},{"double-ended-queue":11,"fast.js/function/try":20}]},{},[10])(10)
+},{}]},{},[11])(11)
 });

@@ -17,10 +17,6 @@ var _invariant = require('invariant');
 
 var _invariant2 = _interopRequireDefault(_invariant);
 
-var _marsdb = require('marsdb');
-
-var _marsdb2 = _interopRequireDefault(_marsdb);
-
 var _DDPConnection = require('./DDPConnection');
 
 var _DDPConnection2 = _interopRequireDefault(_DDPConnection);
@@ -42,6 +38,8 @@ var _CollectionManager = require('./CollectionManager');
 var _CursorWithSub = require('./CursorWithSub');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var Collection = typeof window !== 'undefined' && window.Mars ? window.Mars.Collection : require('marsdb').Collection;
 
 // Internals
 var _connection = null;
@@ -84,7 +82,7 @@ function configure(_ref) {
   _connection.customManagers = (0, _map3.default)(managers, function (x) {
     return new x(_connection);
   });
-  _marsdb2.default.defaultDelegate((0, _CollectionManager.createCollectionDelegate)(_connection));
-  _marsdb2.default.defaultCursor((0, _CursorWithSub.createCursorWithSub)(_connection));
+  Collection.defaultDelegate((0, _CollectionManager.createCollectionDelegate)(_connection));
+  Collection.defaultCursor((0, _CursorWithSub.createCursorWithSub)(_connection));
   return _connection;
 }

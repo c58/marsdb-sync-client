@@ -11,8 +11,6 @@ var _bind2 = require('fast.js/function/bind');
 
 var _bind3 = _interopRequireDefault(_bind2);
 
-var _marsdb = require('marsdb');
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -20,6 +18,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var EventEmitter = typeof window !== 'undefined' && window.Mars ? window.Mars.EventEmitter : require('marsdb').EventEmitter;
+var Random = typeof window !== 'undefined' && window.Mars ? window.Mars.Random : require('marsdb').Random;
 
 // Method call statuses
 var CALL_STATUS = exports.CALL_STATUS = {
@@ -40,7 +41,7 @@ var MethodCall = function (_EventEmitter) {
 
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(MethodCall).call(this));
 
-    _this.id = _marsdb.Random.default().id(20);
+    _this.id = Random.default().id(20);
     _this.result = (0, _bind3.default)(_this.result, _this);
     _this.updated = (0, _bind3.default)(_this.updated, _this);
 
@@ -125,6 +126,6 @@ var MethodCall = function (_EventEmitter) {
   }]);
 
   return MethodCall;
-}(_marsdb.EventEmitter);
+}(EventEmitter);
 
 exports.default = MethodCall;

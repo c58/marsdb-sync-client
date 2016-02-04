@@ -14,8 +14,6 @@ var _keys2 = require('fast.js/object/keys');
 
 var _keys3 = _interopRequireDefault(_keys2);
 
-var _marsdb = require('marsdb');
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
@@ -25,6 +23,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var Collection = typeof window !== 'undefined' && window.Mars ? window.Mars.Collection : require('marsdb').Collection;
 
 // Internals
 function _isCacheValid(tryCache, result) {
@@ -45,7 +45,7 @@ function _isCacheValid(tryCache, result) {
  * @return {Cursor}
  */
 function createCursorWithSub(connection) {
-  var _currentCursorClass = _marsdb.Collection.defaultCursor();
+  var _currentCursorClass = Collection.defaultCursor();
 
   /**
    * Cursor that automatically subscribe and unsubscribe

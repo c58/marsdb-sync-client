@@ -14,8 +14,6 @@ var _forEach = require('fast.js/forEach');
 
 var _forEach2 = _interopRequireDefault(_forEach);
 
-var _marsdb = require('marsdb');
-
 var _Subscription = require('./Subscription');
 
 var _Subscription2 = _interopRequireDefault(_Subscription);
@@ -27,6 +25,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var EventEmitter = typeof window !== 'undefined' && window.Mars ? window.Mars.EventEmitter : require('marsdb').EventEmitter;
 
 // Internals
 var STOP_SUB_DELAY = 15000;
@@ -195,6 +195,6 @@ var SubscriptionManager = function (_EventEmitter) {
   }]);
 
   return SubscriptionManager;
-}(_marsdb.EventEmitter);
+}(EventEmitter);
 
 exports.default = SubscriptionManager;
