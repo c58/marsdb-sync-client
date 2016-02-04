@@ -43,13 +43,18 @@ MarsSync.configure({ url: 'ws://localhost:3000' });
 
 // User your collections
 const posts = new Collection('posts');
-posts.find(
+const observer = posts.find(
   {author: 'me'},
   {sub: ['postsByAuthor', 'me']}
 ).observe((posts) => {
   // Subscribe to "postsByAuthor" publisher and update any time when
   // some documents added (but with debounce)
 });
+
+// When you stop all observers of a cursor
+// subscription will be automatically stopped
+// (after 15 sec for optimal client/server communication)
+observer.stop();
 ```
 
 ### Wait for subscription ready
