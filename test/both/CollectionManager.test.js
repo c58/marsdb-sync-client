@@ -16,7 +16,8 @@ describe('CollectionManager', function () {
       sendResult: sinon.spy(),
       sendUpdated: sinon.spy(),
       methodManager: { apply: sinon.spy(() => ({
-        result: () => Promise.resolve([2])
+        result: () => Promise.resolve([2]),
+        then: () => Promise.resolve([2]),
       }))},
     };
     const managerClass = createCollectionDelegate(conn);
@@ -62,9 +63,7 @@ describe('CollectionManager', function () {
 
     it('should revert update on update fail', function () {
       conn.methodManager = {
-        apply: sinon.spy(() => ({
-          result: () => Promise.reject()
-        })),
+        apply: sinon.spy(() => Promise.reject()),
       };
       return db.insertAll([{_id: 1, a: 1}, {_id: 2, a: 2}], {quiet: true}).then(() => {
         db.update = sinon.spy();
@@ -84,9 +83,7 @@ describe('CollectionManager', function () {
 
     it('should revert upsert update', function () {
       conn.methodManager = {
-        apply: sinon.spy(() => ({
-          result: () => Promise.reject()
-        })),
+        apply: sinon.spy(() => Promise.reject()),
       };
       return db.insertAll([{_id: 1, a: 1}, {_id: 2, a: 2}], {quiet: true}).then(() => {
         db.remove = sinon.spy();
@@ -130,9 +127,7 @@ describe('CollectionManager', function () {
 
     it('should revert remove on insert fail', function () {
       conn.methodManager = {
-        apply: sinon.spy(() => ({
-          result: () => Promise.reject()
-        })),
+        apply: sinon.spy(() => Promise.reject()),
       };
       return db.insertAll([{_id: 1, a: 1}, {_id: 2, a: 2}], {quiet: true}).then(() => {
         db.insertAll = sinon.spy();
@@ -182,9 +177,7 @@ describe('CollectionManager', function () {
     it('should revert insert on insert fail', function () {
       db.remove = sinon.spy();
       conn.methodManager = {
-        apply: sinon.spy(() => ({
-          result: () => Promise.reject()
-        })),
+        apply: sinon.spy(() => Promise.reject()),
       };
       return manager.insert({_id: 1, a: 1}, {}, {seed: 1}).then(() => {
         return Promise.resolve().then(() => {
