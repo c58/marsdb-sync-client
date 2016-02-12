@@ -82,7 +82,7 @@ var MethodCall = function (_EventEmitter) {
       var _this2 = this;
 
       return this.updated().then(function () {
-        return _this2.result(succFn, failFn);
+        return _this2.result().then(succFn, failFn);
       }, failFn);
     }
   }, {
