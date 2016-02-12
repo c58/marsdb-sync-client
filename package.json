@@ -23,7 +23,7 @@
     "invariant": "^2.2.0",
     "js-sha256": "^0.3.0",
     "fast.js": "^0.1.1",
-    "marsdb": "^0.5.22"
+    "marsdb": "^0.5.23"
   },
   "devDependencies": {
     "core-js": "^2.0.0",

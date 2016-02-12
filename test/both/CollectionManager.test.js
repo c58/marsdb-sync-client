@@ -23,6 +23,7 @@ describe('CollectionManager', function () {
     const managerClass = createCollectionDelegate(conn);
     Collection.defaultDelegate(managerClass);
     db = new Collection('test');
+    db._lazyInitCollection();
     manager = db.delegate;
   });
 
