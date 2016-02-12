@@ -51,19 +51,19 @@ function getConnection() {
 function call() {
   var _connection$methodMan;
 
-  (_connection$methodMan = _connection.methodManager).call.apply(_connection$methodMan, arguments);
+  return (_connection$methodMan = _connection.methodManager).call.apply(_connection$methodMan, arguments);
 }
 
 function apply() {
   var _connection$methodMan2;
 
-  (_connection$methodMan2 = _connection.methodManager).apply.apply(_connection$methodMan2, arguments);
+  return (_connection$methodMan2 = _connection.methodManager).apply.apply(_connection$methodMan2, arguments);
 }
 
 function subscribe() {
   var _connection$subManage;
 
-  (_connection$subManage = _connection.subManager).subscribe.apply(_connection$subManage, arguments);
+  return (_connection$subManage = _connection.subManager).subscribe.apply(_connection$subManage, arguments);
 }
 
 function configure(_ref) {
