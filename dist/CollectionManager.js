@@ -69,7 +69,7 @@ function createCollectionDelegate(connection) {
         var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
         var randomId = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
-        var localInsert = _get(Object.getPrototypeOf(CollectionManager.prototype), 'insert', this).call(this, doc, options, randomId);
+        var localInsert = undefined;
 
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/insert';
@@ -81,9 +81,14 @@ function createCollectionDelegate(connection) {
             });
           };
 
-          connection.methodManager.apply(methodName, [doc, options], randomId.seed).result().then(null, handleInsertError);
+          var result = connection.methodManager.apply(methodName, [doc, options], randomId.seed).then(null, handleInsertError);
+
+          if (options.waitResult) {
+            return result;
+          }
         }
 
+        localInsert = _get(Object.getPrototypeOf(CollectionManager.prototype), 'insert', this).call(this, doc, options, randomId);
         return localInsert;
       }
     }, {
@@ -93,7 +98,7 @@ function createCollectionDelegate(connection) {
 
         var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
 
-        var localRemove = _get(Object.getPrototypeOf(CollectionManager.prototype), 'remove', this).call(this, query, options);
+        var localRemove = undefined;
 
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/remove';
@@ -105,9 +110,14 @@ function createCollectionDelegate(connection) {
             });
           };
 
-          connection.methodManager.apply(methodName, [query, options]).result().then(null, handleRemoveError);
+          var result = connection.methodManager.apply(methodName, [query, options]).then(null, handleRemoveError);
+
+          if (options.waitResult) {
+            return result;
+          }
         }
 
+        localRemove = _get(Object.getPrototypeOf(CollectionManager.prototype), 'remove', this).call(this, query, options);
         return localRemove;
       }
     }, {
@@ -117,7 +127,7 @@ function createCollectionDelegate(connection) {
 
         var options = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
-        var localUpdate = _get(Object.getPrototypeOf(CollectionManager.prototype), 'update', this).call(this, query, modifier, options);
+        var localUpdate = undefined;
 
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/update';
@@ -137,9 +147,14 @@ function createCollectionDelegate(connection) {
             });
           };
 
-          connection.methodManager.apply(methodName, [query, modifier, options]).result().then(null, handleUpdateError);
+          var result = connection.methodManager.apply(methodName, [query, modifier, options]).then(null, handleUpdateError);
+
+          if (options.waitResult) {
+            return result;
+          }
         }
 
+        localUpdate = _get(Object.getPrototypeOf(CollectionManager.prototype), 'update', this).call(this, query, modifier, options);
         return localUpdate;
       }
     }, {
@@ -205,7 +220,7 @@ function createCollectionDelegate(connection) {
         return this.db.ids().then(function (ids) {
           return connection.methodManager.apply(methodName, [ids]).result();
         }).then(function (removedIds) {
-          return _this5.db.remove({ _id: { $in: removedIds } }, { quiet: true });
+          return _this5.db.remove({ _id: { $in: removedIds } }, { quiet: true, multi: true });
         });
       }
     }]);

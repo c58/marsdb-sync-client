@@ -62,6 +62,10 @@ var Subscription = function (_EventEmitter) {
       }));
     };
 
+    _this.stop = function () {
+      _this._scheduleStop();
+    };
+
     _this.id = Random.default().id(20);
     _this.name = name;
     _this.params = params;
@@ -72,9 +76,9 @@ var Subscription = function (_EventEmitter) {
   }
 
   _createClass(Subscription, [{
-    key: 'stop',
-    value: function stop() {
-      this._scheduleStop();
+    key: 'then',
+    value: function then(succFn, failFn) {
+      return this.ready().then(succFn, failFn);
     }
   }, {
     key: '_promiseMixed',
@@ -84,6 +88,7 @@ var Subscription = function (_EventEmitter) {
       return {
         stopped: this.stopped,
         ready: this.ready,
+        stop: this.stop,
         then: function then() {
           return _this2._promiseMixed(promise.then.apply(promise, arguments));
         }

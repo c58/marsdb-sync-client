@@ -70,7 +70,7 @@ function createCollectionDelegate(connection) {
         var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
         var randomId = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
-        var localInsert = _get(Object.getPrototypeOf(CollectionManager.prototype), 'insert', this).call(this, doc, options, randomId);
+        var localInsert = undefined;
 
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/insert';
@@ -82,9 +82,14 @@ function createCollectionDelegate(connection) {
             });
           };
 
-          connection.methodManager.apply(methodName, [doc, options], randomId.seed).result().then(null, handleInsertError);
+          var result = connection.methodManager.apply(methodName, [doc, options], randomId.seed).then(null, handleInsertError);
+
+          if (options.waitResult) {
+            return result;
+          }
         }
 
+        localInsert = _get(Object.getPrototypeOf(CollectionManager.prototype), 'insert', this).call(this, doc, options, randomId);
         return localInsert;
       }
     }, {
@@ -94,7 +99,7 @@ function createCollectionDelegate(connection) {
 
         var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
 
-        var localRemove = _get(Object.getPrototypeOf(CollectionManager.prototype), 'remove', this).call(this, query, options);
+        var localRemove = undefined;
 
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/remove';
@@ -106,9 +111,14 @@ function createCollectionDelegate(connection) {
             });
           };
 
-          connection.methodManager.apply(methodName, [query, options]).result().then(null, handleRemoveError);
+          var result = connection.methodManager.apply(methodName, [query, options]).then(null, handleRemoveError);
+
+          if (options.waitResult) {
+            return result;
+          }
         }
 
+        localRemove = _get(Object.getPrototypeOf(CollectionManager.prototype), 'remove', this).call(this, query, options);
         return localRemove;
       }
     }, {
@@ -118,7 +128,7 @@ function createCollectionDelegate(connection) {
 
         var options = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
-        var localUpdate = _get(Object.getPrototypeOf(CollectionManager.prototype), 'update', this).call(this, query, modifier, options);
+        var localUpdate = undefined;
 
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/update';
@@ -138,9 +148,14 @@ function createCollectionDelegate(connection) {
             });
           };
 
-          connection.methodManager.apply(methodName, [query, modifier, options]).result().then(null, handleUpdateError);
+          var result = connection.methodManager.apply(methodName, [query, modifier, options]).then(null, handleUpdateError);
+
+          if (options.waitResult) {
+            return result;
+          }
         }
 
+        localUpdate = _get(Object.getPrototypeOf(CollectionManager.prototype), 'update', this).call(this, query, modifier, options);
         return localUpdate;
       }
     }, {
@@ -206,7 +221,7 @@ function createCollectionDelegate(connection) {
         return this.db.ids().then(function (ids) {
           return connection.methodManager.apply(methodName, [ids]).result();
         }).then(function (removedIds) {
-          return _this5.db.remove({ _id: { $in: removedIds } }, { quiet: true });
+          return _this5.db.remove({ _id: { $in: removedIds } }, { quiet: true, multi: true });
         });
       }
     }]);
@@ -818,13 +833,6 @@ var _createClass = function () { function defineProperties(target, props) { for 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.CALL_STATUS = undefined;
-
-var _bind2 = require('fast.js/function/bind');
-
-var _bind3 = _interopRequireDefault(_bind2);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -854,10 +862,30 @@ var MethodCall = function (_EventEmitter) {
 
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(MethodCall).call(this));
 
-    _this.id = Random.default().id(20);
-    _this.result = (0, _bind3.default)(_this.result, _this);
-    _this.updated = (0, _bind3.default)(_this.updated, _this);
+    _this.result = function () {
+      return _this._promiseMixed(new Promise(function (resolve, reject) {
+        if (_this._error) {
+          reject(_this._error);
+        } else if (_this._result) {
+          resolve(_this._result);
+        } else {
+          _this.once(CALL_STATUS.RESULT, resolve);
+          _this.once(CALL_STATUS.ERROR, reject);
+        }
+      }));
+    };
 
+    _this.updated = function () {
+      return _this._promiseMixed(new Promise(function (resolve, reject) {
+        if (_this._updated) {
+          resolve();
+        } else {
+          _this.once(CALL_STATUS.UPDATED, resolve);
+        }
+      }));
+    };
+
+    _this.id = Random.default().id(20);
     connection.sendMethod(method, params, _this.id, randomSeed);
     return _this;
   }
@@ -869,53 +897,32 @@ var MethodCall = function (_EventEmitter) {
    * @return {Promise}
    */
 
+  /**
+   * Returns a promise that will be resolved when updated
+   * message received for given funciton call. It is also
+   * have "result" and "updated" fields for chaining.
+   * @return {Promise}
+   */
+
   _createClass(MethodCall, [{
-    key: 'result',
-    value: function result() {
+    key: 'then',
+    value: function then(succFn, failFn) {
       var _this2 = this;
 
-      return this._promiseMixed(new Promise(function (resolve, reject) {
-        if (_this2._error) {
-          reject(_this2._error);
-        } else if (_this2._result) {
-          resolve(_this2._result);
-        } else {
-          _this2.once(CALL_STATUS.RESULT, resolve);
-          _this2.once(CALL_STATUS.ERROR, reject);
-        }
-      }));
-    }
-
-    /**
-     * Returns a promise that will be resolved when updated
-     * message received for given funciton call. It is also
-     * have "result" and "updated" fields for chaining.
-     * @return {Promise}
-     */
-
-  }, {
-    key: 'updated',
-    value: function updated() {
-      var _this3 = this;
-
-      return this._promiseMixed(new Promise(function (resolve, reject) {
-        if (_this3._updated) {
-          resolve();
-        } else {
-          _this3.once(CALL_STATUS.UPDATED, resolve);
-        }
-      }));
+      return this.updated().then(function () {
+        return _this2.result(succFn, failFn);
+      }, failFn);
     }
   }, {
     key: '_promiseMixed',
     value: function _promiseMixed(promise) {
-      var _this4 = this;
+      var _this3 = this;
 
       return {
         result: this.result,
         updated: this.updated,
         then: function then() {
-          return _this4._promiseMixed(promise.then.apply(promise, arguments));
+          return _this3._promiseMixed(promise.then.apply(promise, arguments));
         }
       };
     }
@@ -942,7 +949,7 @@ var MethodCall = function (_EventEmitter) {
 }(EventEmitter);
 
 exports.default = MethodCall;
-},{"fast.js/function/bind":17,"marsdb":undefined}],7:[function(require,module,exports){
+},{"marsdb":undefined}],7:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -1133,6 +1140,10 @@ var Subscription = function (_EventEmitter) {
       }));
     };
 
+    _this.stop = function () {
+      _this._scheduleStop();
+    };
+
     _this.id = Random.default().id(20);
     _this.name = name;
     _this.params = params;
@@ -1143,9 +1154,9 @@ var Subscription = function (_EventEmitter) {
   }
 
   _createClass(Subscription, [{
-    key: 'stop',
-    value: function stop() {
-      this._scheduleStop();
+    key: 'then',
+    value: function then(succFn, failFn) {
+      return this.ready().then(succFn, failFn);
     }
   }, {
     key: '_promiseMixed',
@@ -1155,6 +1166,7 @@ var Subscription = function (_EventEmitter) {
       return {
         stopped: this.stopped,
         ready: this.ready,
+        stop: this.stop,
         then: function then() {
           return _this2._promiseMixed(promise.then.apply(promise, arguments));
         }
