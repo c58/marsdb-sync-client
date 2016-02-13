@@ -1585,7 +1585,7 @@ module.exports = {
   configure: client.configure,
   apply: client.apply,
   call: client.call,
-  subscribe: client.subsctibe,
+  subscribe: client.subscribe,
 };
 
 },{"./dist":10}],12:[function(require,module,exports){

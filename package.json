@@ -1,6 +1,6 @@
 {
   "name": "marsdb-sync-client",
-  "version": "0.0.5",
+  "version": "0.1.0",
   "author": "Artem Artemev <art@studytime.me>",
   "contributors": [
     "Artem Artemev"
@@ -21,10 +21,13 @@
   },
   "dependencies": {
     "invariant": "^2.2.0",
-    "fast.js": "^0.1.1",
-    "marsdb": "^0.5.25"
+    "fast.js": "^0.1.1"
+  },
+  "peerDependencies": {
+    "marsdb": "0.6.x"
   },
   "devDependencies": {
+    "marsdb": "^0.6.0",
     "core-js": "^2.0.0",
     "babel-cli": "^6.3.17",
     "babel-eslint": "^5.0.0-beta6",
