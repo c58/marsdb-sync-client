@@ -23,6 +23,7 @@ describe('DDPConnection', function () {
       url: 'test',
       socket: WebScoketMock,
     });
+    conn.connect();
   });
   afterEach(function() {
     clock.restore();
