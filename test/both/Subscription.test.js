@@ -229,4 +229,20 @@ describe('Subscription', function () {
     });
   });
 
+  describe('#then', function () {
+    it('should resolve when ready', function () {
+      const cb = sinon.spy();
+      const sub = new Subscription('test', [1,2,3], conn, 50);
+      sub.then(cb);
+      cb.should.have.callCount(0);
+      sub._subscribe();
+      cb.should.have.callCount(0);
+      sub._handleReady();
+      cb.should.have.callCount(0);
+      return Promise.resolve().then(() => {
+        cb.should.have.callCount(1);
+      })
+    });
+  });
+
 });
