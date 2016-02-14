@@ -11,6 +11,7 @@ describe('MethodCallManager', function () {
   let conn;
   beforeEach(function () {
     conn = {
+      isConnected: true,
       on: sinon.spy(),
       sendMethod: sinon.spy(),
       methodManager: { apply: sinon.spy(() => ({
@@ -64,17 +65,33 @@ describe('MethodCallManager', function () {
       return call.result().should.be.eventually.rejected;
     });
 
-    it('should reject all methods on disconnect', function () {
+    it('should reject not pending methods on disconnect', function () {
       const manager = new MethodCallManager(conn);
       const call1 = manager.apply('test', [1,2,3], 10);
       const call2 = manager.apply('test1', [1,2,3], 10);
       const call3 = manager.apply('test2', [1,2,3], 10);
+      conn.isConnected = false;
+      const call4 = manager.apply('test3', [1,2,3], 10);
       manager._handleDisconnected();
       return Promise.all([
         call1.result().should.be.eventually.rejected,
         call2.result().should.be.eventually.rejected,
         call3.result().should.be.eventually.rejected,
-      ]);
+      ]).then(() => {
+        call1.isDone.should.be.true;
+        call2.isDone.should.be.true;
+        call3.isDone.should.be.true;
+        call4.isDone.should.be.false;
+        call4.isPending.should.be.true;
+        manager._handleDisconnected();
+        call4.isPending.should.be.true;
+        manager._handleConnected();
+        call4.isPending.should.be.false;
+        call4.isSent.should.be.true;
+        manager._handleDisconnected();
+        call4.isSent.should.be.false;
+        call4.isDone.should.be.true;
+      });
     });
 
     it('should accept no params and no random seed', function () {
@@ -84,6 +101,17 @@ describe('MethodCallManager', function () {
       conn.sendMethod.getCall(0).args.should.be.deep.equal([
         'test', [], call.id, undefined
       ]);
+    });
+
+    it('should wait untill connected', function () {
+      conn.isConnected = false;
+      const manager = new MethodCallManager(conn);
+      const call = manager.apply('test');
+      call.isPending.should.be.true;
+      const handler = conn.on.getCall(1).args[1];
+      handler();
+      call.isPending.should.be.false;
+      call.isSent.should.be.true;
     });
   });
 });

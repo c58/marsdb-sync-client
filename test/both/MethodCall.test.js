@@ -20,14 +20,9 @@ describe('MethodCall', function () {
   });
 
   describe('#constructor', function () {
-    it('should send method message', function () {
+    it('should be pending on create', function () {
       const call = new MethodCall('test', [1,2,3], 0, conn);
-      call.id.should.have.length(20);
-      conn.sendMethod.should.have.callCount(1);
-      conn.sendMethod.getCall(0).args.should.be.deep.equal(
-        ['test', [1,2,3], call.id, 0]
-      );
-
+      call.isPending.should.be.true;
     });
   });
 
@@ -35,6 +30,7 @@ describe('MethodCall', function () {
     it('should return promise with result and updated field', function () {
       const call = new MethodCall('test', [1,2,3], 0, conn);
       const res = call.result();
+      call._invoke();
       res.should.have.ownProperty('result');
       res.should.have.ownProperty('updated');
       res.should.have.ownProperty('then');
@@ -44,6 +40,7 @@ describe('MethodCall', function () {
       const cb = sinon.spy();
       const call = new MethodCall('test', [1,2,3], 0, conn);
       const res = call.result().then(cb);
+      call._invoke();
       call._handleResult(null, {a: 1});
       call._handleResult(null, {a: 1});
       call._handleResult(null, {a: 1});
@@ -56,6 +53,7 @@ describe('MethodCall', function () {
       const cb = sinon.spy();
       const call = new MethodCall('test', [1,2,3], 0, conn);
       const res = call.result().then(null, cb);
+      call._invoke();
       call._handleResult(new Error());
       call._handleResult(new Error());
       call._handleResult(new Error());
@@ -67,6 +65,7 @@ describe('MethodCall', function () {
     it('should be resolved immideatilly if method already resulted', function () {
       const cb = sinon.spy();
       const call = new MethodCall('test', [1,2,3], 0, conn);
+      call._invoke();
       call._handleResult(null, {a: 1});
       return call.result().should.be.eventually.fulfilled;
     });
@@ -74,6 +73,7 @@ describe('MethodCall', function () {
     it('should be rejected immideatilly if method already errored', function () {
       const cb = sinon.spy();
       const call = new MethodCall('test', [1,2,3], 0, conn);
+      call._invoke();
       call._handleResult(new Error());
       return call.result().should.be.eventually.rejecte;
     });
@@ -83,6 +83,7 @@ describe('MethodCall', function () {
     it('should return promise with result and updated field', function () {
       const call = new MethodCall('test', [1,2,3], 0, conn);
       const upd = call.updated();
+      call._invoke();
       upd.should.have.ownProperty('result');
       upd.should.have.ownProperty('updated');
       upd.should.have.ownProperty('then');
@@ -92,6 +93,7 @@ describe('MethodCall', function () {
       const cb = sinon.spy();
       const call = new MethodCall('test', [1,2,3], 0, conn);
       const upd = call.updated().then(cb);
+      call._invoke();
       call._handleUpdated();
       return upd.then(() => {
         cb.should.have.callCount(1);
@@ -100,8 +102,29 @@ describe('MethodCall', function () {
 
     it('should be resolved immideatilly if already updated', function () {
       const call = new MethodCall('test', [1,2,3], 0, conn);
+      call._invoke();
       call._handleUpdated();
       return call.updated().should.be.eventually.fulfilled;
+    });
+  });
+
+  describe('#then', function () {
+    it('should resolve when updates and resulted', function () {
+      const call = new MethodCall('test', [1,2,3], 0, conn);
+      const cb = sinon.spy();
+      call.then(cb);
+      call._handleResult(null, {a: 1});
+      cb.should.have.callCount(0);
+      return Promise.resolve().then(() => {
+        cb.should.have.callCount(0);
+        call._handleUpdated();
+        cb.should.have.callCount(0);
+        return Promise.resolve().then(() => {
+          return Promise.resolve().then(() => {
+            cb.should.have.callCount(1);
+          });
+        });
+      });
     });
   });
 });
