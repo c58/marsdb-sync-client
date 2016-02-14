@@ -17,6 +17,8 @@ var Random = typeof window !== 'undefined' && window.Mars ? window.Mars.Random :
 
 // Method call statuses
 var CALL_STATUS = exports.CALL_STATUS = {
+  PENDING: 'PENDING',
+  SENT: 'SENT',
   RESULT: 'RESULT',
   ERROR: 'ERROR',
   UPDATED: 'UPDATED'
@@ -58,32 +60,35 @@ var MethodCall = function (_EventEmitter) {
     };
 
     _this.id = Random.default().id(20);
-    connection.sendMethod(method, params, _this.id, randomSeed);
+    _this.status = CALL_STATUS.PENDING;
+    _this.method = method;
+    _this.params = params;
+    _this.randomSeed = randomSeed;
+    _this._conn = connection;
     return _this;
   }
 
-  /**
-   * Returns a promise that will be resolved when result
-   * of funciton call is received. It is also have "result"
-   * and "updated" fields for chaining
-   * @return {Promise}
-   */
-
-  /**
-   * Returns a promise that will be resolved when updated
-   * message received for given funciton call. It is also
-   * have "result" and "updated" fields for chaining.
-   * @return {Promise}
-   */
-
   _createClass(MethodCall, [{
     key: 'then',
+
+    /**
+     * Shorthand for updated and result
+     * @param  {Function} succFn
+     * @param  {Function} failFn
+     * @return {Promise}
+     */
     value: function then(succFn, failFn) {
       var _this2 = this;
 
       return this.updated().then(function () {
         return _this2.result().then(succFn, failFn);
       }, failFn);
+    }
+  }, {
+    key: '_invoke',
+    value: function _invoke() {
+      this._conn.sendMethod(this.method, this.params, this.id, this.randomSeed);
+      this._setStatus(CALL_STATUS.SENT);
     }
   }, {
     key: '_promiseMixed',
@@ -103,18 +108,54 @@ var MethodCall = function (_EventEmitter) {
     value: function _handleResult(error, result) {
       if (error) {
         this._error = error;
-        this.emit(CALL_STATUS.ERROR, error);
+        this._setStatus(CALL_STATUS.ERROR, error);
       } else {
         this._result = result;
-        this.emit(CALL_STATUS.RESULT, result);
+        this._setStatus(CALL_STATUS.RESULT, result);
       }
     }
   }, {
     key: '_handleUpdated',
     value: function _handleUpdated(msg) {
       this._updated = true;
-      this.emit(CALL_STATUS.UPDATED);
+      this._setStatus(CALL_STATUS.UPDATED);
     }
+  }, {
+    key: '_setStatus',
+    value: function _setStatus(status, a, b, c, d) {
+      this.status = status;
+      this.emit(status, a, b, c, d);
+    }
+  }, {
+    key: 'isPending',
+    get: function get() {
+      return this.status === CALL_STATUS.PENDING;
+    }
+  }, {
+    key: 'isSent',
+    get: function get() {
+      return this.status === CALL_STATUS.SENT;
+    }
+  }, {
+    key: 'isDone',
+    get: function get() {
+      return this.status !== CALL_STATUS.SENT && this.status !== CALL_STATUS.PENDING;
+    }
+
+    /**
+     * Returns a promise that will be resolved when result
+     * of funciton call is received. It is also have "result"
+     * and "updated" fields for chaining
+     * @return {Promise}
+     */
+
+    /**
+     * Returns a promise that will be resolved when updated
+     * message received for given funciton call. It is also
+     * have "result" and "updated" fields for chaining.
+     * @return {Promise}
+     */
+
   }]);
 
   return MethodCall;

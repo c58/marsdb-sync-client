@@ -405,7 +405,7 @@ var DDPConnection = function (_EventEmitter) {
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(DDPConnection).call(this));
 
     _this.url = url;
-    _this._queue = new PromiseQueue(1);
+    _this._processQueue = new PromiseQueue(1);
     _this._sessionId = null;
     _this._autoReconnect = autoReconnect;
     _this._socket = socket;
@@ -626,7 +626,7 @@ var DDPConnection = function (_EventEmitter) {
     value: function _handleRawMessage(rawMsg) {
       var _this4 = this;
 
-      return this._queue.add(function () {
+      return this._processQueue.add(function () {
         var msgObj = EJSON.parse(rawMsg.data);
         return _this4._processMessage(msgObj);
       }).then(null, function (err) {
@@ -845,6 +845,8 @@ var Random = typeof window !== 'undefined' && window.Mars ? window.Mars.Random :
 
 // Method call statuses
 var CALL_STATUS = exports.CALL_STATUS = {
+  PENDING: 'PENDING',
+  SENT: 'SENT',
   RESULT: 'RESULT',
   ERROR: 'ERROR',
   UPDATED: 'UPDATED'
@@ -886,32 +888,35 @@ var MethodCall = function (_EventEmitter) {
     };
 
     _this.id = Random.default().id(20);
-    connection.sendMethod(method, params, _this.id, randomSeed);
+    _this.status = CALL_STATUS.PENDING;
+    _this.method = method;
+    _this.params = params;
+    _this.randomSeed = randomSeed;
+    _this._conn = connection;
     return _this;
   }
 
-  /**
-   * Returns a promise that will be resolved when result
-   * of funciton call is received. It is also have "result"
-   * and "updated" fields for chaining
-   * @return {Promise}
-   */
-
-  /**
-   * Returns a promise that will be resolved when updated
-   * message received for given funciton call. It is also
-   * have "result" and "updated" fields for chaining.
-   * @return {Promise}
-   */
-
   _createClass(MethodCall, [{
     key: 'then',
+
+    /**
+     * Shorthand for updated and result
+     * @param  {Function} succFn
+     * @param  {Function} failFn
+     * @return {Promise}
+     */
     value: function then(succFn, failFn) {
       var _this2 = this;
 
       return this.updated().then(function () {
         return _this2.result().then(succFn, failFn);
       }, failFn);
+    }
+  }, {
+    key: '_invoke',
+    value: function _invoke() {
+      this._conn.sendMethod(this.method, this.params, this.id, this.randomSeed);
+      this._setStatus(CALL_STATUS.SENT);
     }
   }, {
     key: '_promiseMixed',
@@ -931,18 +936,54 @@ var MethodCall = function (_EventEmitter) {
     value: function _handleResult(error, result) {
       if (error) {
         this._error = error;
-        this.emit(CALL_STATUS.ERROR, error);
+        this._setStatus(CALL_STATUS.ERROR, error);
       } else {
         this._result = result;
-        this.emit(CALL_STATUS.RESULT, result);
+        this._setStatus(CALL_STATUS.RESULT, result);
       }
     }
   }, {
     key: '_handleUpdated',
     value: function _handleUpdated(msg) {
       this._updated = true;
-      this.emit(CALL_STATUS.UPDATED);
+      this._setStatus(CALL_STATUS.UPDATED);
     }
+  }, {
+    key: '_setStatus',
+    value: function _setStatus(status, a, b, c, d) {
+      this.status = status;
+      this.emit(status, a, b, c, d);
+    }
+  }, {
+    key: 'isPending',
+    get: function get() {
+      return this.status === CALL_STATUS.PENDING;
+    }
+  }, {
+    key: 'isSent',
+    get: function get() {
+      return this.status === CALL_STATUS.SENT;
+    }
+  }, {
+    key: 'isDone',
+    get: function get() {
+      return this.status !== CALL_STATUS.SENT && this.status !== CALL_STATUS.PENDING;
+    }
+
+    /**
+     * Returns a promise that will be resolved when result
+     * of funciton call is received. It is also have "result"
+     * and "updated" fields for chaining
+     * @return {Promise}
+     */
+
+    /**
+     * Returns a promise that will be resolved when updated
+     * message received for given funciton call. It is also
+     * have "result" and "updated" fields for chaining.
+     * @return {Promise}
+     */
+
   }]);
 
   return MethodCall;
@@ -988,6 +1029,7 @@ var MethodCallManager = function () {
     this._methods = {};
 
     connection.on('status:disconnected', (0, _bind3.default)(this._handleDisconnected, this));
+    connection.on('status:connected', (0, _bind3.default)(this._handleConnected, this));
     connection.on('message:result', (0, _bind3.default)(this._handleMethodResult, this));
     connection.on('message:updated', (0, _bind3.default)(this._handleMethodUpdated, this));
   }
@@ -1030,11 +1072,13 @@ var MethodCallManager = function () {
       this._methods[call.id] = call;
 
       var cleanupCallback = function cleanupCallback() {
-        if (_this._methods[call.id] && _this._methods[call.id]._result && _this._methods[call.id]._updated) {
-          delete _this._methods[call.id];
-        }
+        return delete _this._methods[call.id];
       };
-      call.result().then(cleanupCallback).updated().then(cleanupCallback);
+      call.then(cleanupCallback, cleanupCallback);
+
+      if (this.conn.isConnected) {
+        call._invoke();
+      }
 
       return call;
     }
@@ -1063,11 +1107,21 @@ var MethodCallManager = function () {
     key: '_handleDisconnected',
     value: function _handleDisconnected() {
       (0, _forEach2.default)(this._methods, function (methodCall) {
-        methodCall._handleResult({
-          reason: 'Disconnected, method can\'t be done'
-        });
+        if (!methodCall.isPending) {
+          methodCall._handleResult({
+            reason: 'Disconnected, method can\'t be done'
+          });
+        }
       });
-      this._methods = {};
+    }
+  }, {
+    key: '_handleConnected',
+    value: function _handleConnected() {
+      (0, _forEach2.default)(this._methods, function (methodCall) {
+        if (methodCall.isPending) {
+          methodCall._invoke();
+        }
+      });
     }
   }]);
 
@@ -1569,12 +1623,12 @@ function configure(_ref) {
   (0, _invariant2.default)(!_connection, 'configure(...): connection already configured');
 
   _connection = new _DDPConnection2.default({ url: url, socket: socket });
-  _connection.subManager = new _SubscriptionManager2.default(_connection);
-  _connection.methodManager = new _MethodCallManager2.default(_connection);
-  _connection.errorManager = new _ErrorManager2.default(_connection);
   _connection.customManagers = (0, _map3.default)(managers, function (x) {
     return new x(_connection);
   });
+  _connection.subManager = new _SubscriptionManager2.default(_connection);
+  _connection.methodManager = new _MethodCallManager2.default(_connection);
+  _connection.errorManager = new _ErrorManager2.default(_connection);
   Collection.defaultDelegate((0, _CollectionManager.createCollectionDelegate)(_connection));
   Collection.defaultCursor((0, _CursorWithSub.createCursorWithSub)(_connection));
   return _connection;

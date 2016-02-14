@@ -36,6 +36,7 @@ var MethodCallManager = function () {
     this._methods = {};
 
     connection.on('status:disconnected', (0, _bind3.default)(this._handleDisconnected, this));
+    connection.on('status:connected', (0, _bind3.default)(this._handleConnected, this));
     connection.on('message:result', (0, _bind3.default)(this._handleMethodResult, this));
     connection.on('message:updated', (0, _bind3.default)(this._handleMethodUpdated, this));
   }
@@ -78,11 +79,13 @@ var MethodCallManager = function () {
       this._methods[call.id] = call;
 
       var cleanupCallback = function cleanupCallback() {
-        if (_this._methods[call.id] && _this._methods[call.id]._result && _this._methods[call.id]._updated) {
-          delete _this._methods[call.id];
-        }
+        return delete _this._methods[call.id];
       };
-      call.result().then(cleanupCallback).updated().then(cleanupCallback);
+      call.then(cleanupCallback, cleanupCallback);
+
+      if (this.conn.isConnected) {
+        call._invoke();
+      }
 
       return call;
     }
@@ -111,11 +114,21 @@ var MethodCallManager = function () {
     key: '_handleDisconnected',
     value: function _handleDisconnected() {
       (0, _forEach2.default)(this._methods, function (methodCall) {
-        methodCall._handleResult({
-          reason: 'Disconnected, method can\'t be done'
-        });
+        if (!methodCall.isPending) {
+          methodCall._handleResult({
+            reason: 'Disconnected, method can\'t be done'
+          });
+        }
       });
-      this._methods = {};
+    }
+  }, {
+    key: '_handleConnected',
+    value: function _handleConnected() {
+      (0, _forEach2.default)(this._methods, function (methodCall) {
+        if (methodCall.isPending) {
+          methodCall._invoke();
+        }
+      });
     }
   }]);
 

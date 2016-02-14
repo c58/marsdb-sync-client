@@ -58,7 +58,7 @@ var DDPConnection = function (_EventEmitter) {
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(DDPConnection).call(this));
 
     _this.url = url;
-    _this._queue = new PromiseQueue(1);
+    _this._processQueue = new PromiseQueue(1);
     _this._sessionId = null;
     _this._autoReconnect = autoReconnect;
     _this._socket = socket;
@@ -279,7 +279,7 @@ var DDPConnection = function (_EventEmitter) {
     value: function _handleRawMessage(rawMsg) {
       var _this4 = this;
 
-      return this._queue.add(function () {
+      return this._processQueue.add(function () {
         var msgObj = EJSON.parse(rawMsg.data);
         return _this4._processMessage(msgObj);
       }).then(null, function (err) {

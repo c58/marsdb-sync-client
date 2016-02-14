@@ -76,12 +76,12 @@ function configure(_ref) {
   (0, _invariant2.default)(!_connection, 'configure(...): connection already configured');
 
   _connection = new _DDPConnection2.default({ url: url, socket: socket });
-  _connection.subManager = new _SubscriptionManager2.default(_connection);
-  _connection.methodManager = new _MethodCallManager2.default(_connection);
-  _connection.errorManager = new _ErrorManager2.default(_connection);
   _connection.customManagers = (0, _map3.default)(managers, function (x) {
     return new x(_connection);
   });
+  _connection.subManager = new _SubscriptionManager2.default(_connection);
+  _connection.methodManager = new _MethodCallManager2.default(_connection);
+  _connection.errorManager = new _ErrorManager2.default(_connection);
   Collection.defaultDelegate((0, _CollectionManager.createCollectionDelegate)(_connection));
   Collection.defaultCursor((0, _CursorWithSub.createCursorWithSub)(_connection));
   return _connection;
