@@ -100,6 +100,29 @@ describe('CollectionManager', function () {
         })
       });
     });
+
+    it('should wait until server result when waitResult options passed', function () {
+      return db.insert({a: 1, _id: '123'}, {quiet: true}).then(() => {
+        const cb = sinon.spy();
+        conn.methodManager = { apply: sinon.spy(() => ({
+          then: () => {
+            return Promise.all([
+              Promise.resolve({
+                modified: 1,
+                updated: [{a: 3, _id: '123'}],
+                original: [{a: 1, _id: '123'}],
+              }),
+              db.update('123', {$set: {a: 3}}, {quiet: true})
+            ])
+          },
+        }))}
+        return manager.update('123', {$set: {a: 2}}, {waitResult: true})
+          .then(() => db.findOne('123'))
+          .then((res) => {
+            res.should.be.deep.equal({a: 3, _id: '123'});
+          });
+      });
+    });
   });
 
 
@@ -142,6 +165,28 @@ describe('CollectionManager', function () {
           conn.methodManager.apply.getCall(0).args[0].should.be.equals('/test/remove');
           conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals([{}, {multi: true}]);
         })
+      });
+    });
+
+    it('should wait until server result when waitResult options passed', function () {
+      return db.insertAll([
+        {a: 1, _id: '123'},
+        {a: 2, _id: '321'}
+      ], {quiet: true}).then(() => {
+        const cb = sinon.spy();
+        conn.methodManager = { apply: sinon.spy(() => ({
+          then: () => {
+            return Promise.all([
+              Promise.resolve([{a: 1, _id: '123'}, {a: 2, _id: '321'}]),
+              db.remove({}, {quiet: true, multi: true})
+            ])
+          },
+        }))}
+        return manager.remove('123', {waitResult: true})
+          .then(() => db.find())
+          .then((res) => {
+            res.should.have.length(0);
+          });
       });
     });
   });
@@ -190,6 +235,24 @@ describe('CollectionManager', function () {
           conn.methodManager.apply.getCall(0).args[2].should.be.deep.equals(1);
         })
       });
+    });
+
+    it('should wait until server result when waitResult options passed', function () {
+      const cb = sinon.spy();
+      conn.methodManager = { apply: sinon.spy(() => ({
+        then: () => {
+          return Promise.all([
+            Promise.resolve('2'),
+            db.insert({_id: '2', a: 1}, {quiet: true})
+          ])
+        },
+      }))}
+      return manager.insert({_id: '1', a: 2}, {waitResult: true})
+        .then(() => db.find())
+        .then((res) => {
+          res.should.have.length(1);
+          res[0].should.be.deep.equal({_id: '2', a: 1});
+        });
     });
   });
 
