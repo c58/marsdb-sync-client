@@ -17,6 +17,10 @@ var _forEach = require('fast.js/forEach');
 
 var _forEach2 = _interopRequireDefault(_forEach);
 
+var _map2 = require('fast.js/map');
+
+var _map3 = _interopRequireDefault(_map2);
+
 var _keys2 = require('fast.js/object/keys');
 
 var _keys3 = _interopRequireDefault(_keys2);
@@ -61,6 +65,22 @@ function createCollectionDelegate(connection) {
       return _this;
     }
 
+    /**
+     * Calls remote method `/_collection_name_/insert`. It reverts back
+     * optimistic update on server fail. It also have some options
+     * to customize working approach:
+     * `retryOnDisconnect` option retry method call if it was failed
+     * 										 because dicsonnection. Default is true.
+     * `waitResult` option disable optimistic update of the collection.
+     * 							Returned Promise will be resolved when server returns
+     * 							the result.
+     * @param  {Object}  doc
+     * @param  {Boolean} options.retryOnDisconnect
+     * @param  {Boolean} options.waitResult
+     * @param  {Object}  randomId
+     * @return {Promise}
+     */
+
     _createClass(CollectionManager, [{
       key: 'insert',
       value: function insert(doc) {
@@ -80,17 +100,41 @@ function createCollectionDelegate(connection) {
               throw e;
             });
           };
-
-          var result = connection.methodManager.apply(methodName, [doc, options], randomId.seed).then(null, handleInsertError);
+          var applyOpts = {
+            retryOnDisconnect: options.retryOnDisconnect === false ? false : true, // eslint-disable-line
+            randomSeed: randomId.seed
+          };
+          var result = connection.methodManager.apply(methodName, [doc, options], applyOpts).then(null, handleInsertError);
 
           if (options.waitResult) {
             return result;
+          } else {
+            result.then(null, function (e) {
+              return console.error('Error while calling remote method:', e);
+            });
           }
         }
 
         localInsert = _get(Object.getPrototypeOf(CollectionManager.prototype), 'insert', this).call(this, doc, options, randomId);
         return localInsert;
       }
+
+      /**
+       * Calls remote method `/_collection_name_/remove`. It reverts back
+       * optimistic update on server fail. It also have some options
+       * to customize working approach:
+       * `retryOnDisconnect` option retry method call if it was failed
+       * 										 because dicsonnection. Default is true.
+       * `waitResult` option disable optimistic update of the collection.
+       * 							Returned Promise will be resolved when server returns
+       * 							the result.
+       * @param  {Object}  doc
+       * @param  {Boolean} options.retryOnDisconnect
+       * @param  {Boolean} options.waitResult
+       * @param  {Object}  randomId
+       * @return {Promise}
+       */
+
     }, {
       key: 'remove',
       value: function remove(query) {
@@ -103,23 +147,46 @@ function createCollectionDelegate(connection) {
         if (!options.quiet) {
           var methodName = '/' + this.db.modelName + '/remove';
           var handleRemoveError = function handleRemoveError(e) {
-            return localRemove.then(function (removedDocs) {
-              return _this3.db.insertAll(removedDocs, { quiet: true });
+            return localRemove.then(function (remDocs) {
+              return _this3.db.insertAll(remDocs, { quiet: true });
             }).then(function () {
               throw e;
             });
           };
-
-          var result = connection.methodManager.apply(methodName, [query, options]).then(null, handleRemoveError);
+          var applyOpts = {
+            retryOnDisconnect: options.retryOnDisconnect === false ? false : true };
+          // eslint-disable-line
+          var result = connection.methodManager.apply(methodName, [query, options], applyOpts).then(null, handleRemoveError);
 
           if (options.waitResult) {
             return result;
+          } else {
+            result.then(null, function (e) {
+              return console.error('Error while calling remote method:', e);
+            });
           }
         }
 
         localRemove = _get(Object.getPrototypeOf(CollectionManager.prototype), 'remove', this).call(this, query, options);
         return localRemove;
       }
+
+      /**
+       * Calls remote method `/_collection_name_/update`. It reverts back
+       * optimistic update on server fail. It also have some options
+       * to customize working approach:
+       * `retryOnDisconnect` option retry method call if it was failed
+       * 										 because dicsonnection. Default is true.
+       * `waitResult` option disable optimistic update of the collection.
+       * 							Returned Promise will be resolved when server returns
+       * 							the result.
+       * @param  {Object}  doc
+       * @param  {Boolean} options.retryOnDisconnect
+       * @param  {Boolean} options.waitResult
+       * @param  {Object}  randomId
+       * @return {Promise}
+       */
+
     }, {
       key: 'update',
       value: function update(query, modifier) {
@@ -133,13 +200,13 @@ function createCollectionDelegate(connection) {
           var methodName = '/' + this.db.modelName + '/update';
           var handleUpdateError = function handleUpdateError(e) {
             return localUpdate.then(function (res) {
-              (0, _forEach2.default)(res.updated, function (d, i) {
+              return (0, _map3.default)(res.updated, function (d, i) {
                 if (!res.original[i]) {
-                  _this4.db.remove(d._id, { quiet: true });
+                  return _this4.db.remove(d._id, { quiet: true });
                 } else {
                   var docId = res.original[i]._id;
                   delete res.original[i]._id;
-                  _this4.db.update({ _id: docId }, res.original[i], { quiet: true, upsert: true });
+                  return _this4.db.update({ _id: docId }, res.original[i], { quiet: true, upsert: true });
                 }
               });
             }).then(function () {
@@ -147,10 +214,17 @@ function createCollectionDelegate(connection) {
             });
           };
 
-          var result = connection.methodManager.apply(methodName, [query, modifier, options]).then(null, handleUpdateError);
+          var applyOpts = {
+            retryOnDisconnect: options.retryOnDisconnect === false ? false : true };
+          // eslint-disable-line
+          var result = connection.methodManager.apply(methodName, [query, modifier, options], applyOpts).then(null, handleUpdateError);
 
           if (options.waitResult) {
             return result;
+          } else {
+            result.then(null, function (e) {
+              return console.error('Error while calling remote method:', e);
+            });
           }
         }
 

@@ -73,9 +73,9 @@ var MethodCallManager = function () {
       var _this = this;
 
       var params = arguments.length <= 1 || arguments[1] === undefined ? [] : arguments[1];
-      var randomSeed = arguments[2];
+      var options = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
-      var call = new _MethodCall2.default(method, params, randomSeed, this.conn);
+      var call = new _MethodCall2.default(method, params, options, this.conn);
       this._methods[call.id] = call;
 
       var cleanupCallback = function cleanupCallback() {
@@ -114,10 +114,15 @@ var MethodCallManager = function () {
     key: '_handleDisconnected',
     value: function _handleDisconnected() {
       (0, _forEach2.default)(this._methods, function (methodCall) {
-        if (!methodCall.isPending) {
-          methodCall._handleResult({
-            reason: 'Disconnected, method can\'t be done'
-          });
+        if (methodCall.isSent) {
+          if (!methodCall.options.retryOnDisconnect) {
+            methodCall._handleResult({
+              reason: 'Disconnected, method can\'t be done',
+              code: 'DISCONNECTED'
+            });
+          } else {
+            methodCall._retry();
+          }
         }
       });
     }

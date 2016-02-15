@@ -48,8 +48,7 @@ var DDPConnection = function (_EventEmitter) {
 
   function DDPConnection(_ref) {
     var url = _ref.url;
-    var _ref$socket = _ref.socket;
-    var socket = _ref$socket === undefined ? WebSocket : _ref$socket;
+    var socket = _ref.socket;
     var _ref$autoReconnect = _ref.autoReconnect;
     var autoReconnect = _ref$autoReconnect === undefined ? true : _ref$autoReconnect;
 
@@ -68,7 +67,6 @@ var DDPConnection = function (_EventEmitter) {
     _this._heartbeat.on('timeout', (0, _bind3.default)(_this._handleHearbeatTimeout, _this));
     _this._heartbeat.on('sendPing', (0, _bind3.default)(_this.sendPing, _this));
     _this._heartbeat.on('sendPong', (0, _bind3.default)(_this.sendPong, _this));
-    _this.connect();
     return _this;
   }
 

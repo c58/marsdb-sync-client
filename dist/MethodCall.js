@@ -31,7 +31,10 @@ var CALL_STATUS = exports.CALL_STATUS = {
 var MethodCall = function (_EventEmitter) {
   _inherits(MethodCall, _EventEmitter);
 
-  function MethodCall(method, params, randomSeed, connection) {
+  function MethodCall(method, params) {
+    var options = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
+    var connection = arguments[3];
+
     _classCallCheck(this, MethodCall);
 
     var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(MethodCall).call(this));
@@ -63,7 +66,7 @@ var MethodCall = function (_EventEmitter) {
     _this.status = CALL_STATUS.PENDING;
     _this.method = method;
     _this.params = params;
-    _this.randomSeed = randomSeed;
+    _this.options = options;
     _this._conn = connection;
     return _this;
   }
@@ -87,8 +90,13 @@ var MethodCall = function (_EventEmitter) {
   }, {
     key: '_invoke',
     value: function _invoke() {
-      this._conn.sendMethod(this.method, this.params, this.id, this.randomSeed);
+      this._conn.sendMethod(this.method, this.params, this.id, this.options.randomSeed);
       this._setStatus(CALL_STATUS.SENT);
+    }
+  }, {
+    key: '_retry',
+    value: function _retry() {
+      this._setStatus(CALL_STATUS.PENDING);
     }
   }, {
     key: '_promiseMixed',
