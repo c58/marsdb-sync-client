@@ -67,7 +67,7 @@ gulp.task('build:browser', ['build:node'], function() {
     entries: config.browser.entry,
     debug: false,
     fullPaths: false,
-    standalone: 'Mars.Meteor',
+    standalone: 'Mars.Client',
   };
 
   return browserify(customOpts)
