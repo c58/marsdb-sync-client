@@ -126,6 +126,20 @@ describe('CollectionManager', function () {
           });
       });
     });
+
+    it('should be able to disable retryOnDisconnect', function () {
+      return db.insertAll([{_id: 1, a: 1}, {_id: 2, a: 2}], {quiet: true}).then(() => {
+        db.remove = sinon.spy();
+        return manager.update({_id: 3}, {$set: {a: 3}}, {retryOnDisconnect: false});
+      }).then(() => {
+        return Promise.resolve().then(() => {
+          conn.methodManager.apply.should.have.callCount(1);
+          conn.methodManager.apply.getCall(0).args[0].should.be.equals('/test/update');
+          conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals([{_id: 3}, {$set: {a: 3}}, {retryOnDisconnect:false}]);
+          conn.methodManager.apply.getCall(0).args[2].should.be.deep.equals({retryOnDisconnect:false});
+        })
+      })
+    });
   });
 
 
@@ -192,6 +206,22 @@ describe('CollectionManager', function () {
           });
       });
     });
+
+    it('should be able to disable retryOnDisconnect', function () {
+      return db.insertAll([
+        {a: 1, _id: '123'},
+        {a: 2, _id: '321'}
+      ], {quiet: true}).then(() => {
+        return manager.remove('123', {retryOnDisconnect: false}).then(() => {
+          return Promise.resolve().then(() => {
+            conn.methodManager.apply.should.have.callCount(1);
+            conn.methodManager.apply.getCall(0).args[0].should.be.equals('/test/remove');
+            conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals(['123', {retryOnDisconnect:false}]);
+            conn.methodManager.apply.getCall(0).args[2].should.be.deep.equals({retryOnDisconnect:false});
+          })
+        })
+      });
+    });
   });
 
 
@@ -235,7 +265,7 @@ describe('CollectionManager', function () {
           conn.methodManager.apply.should.have.callCount(1);
           conn.methodManager.apply.getCall(0).args[0].should.be.equals('/test/insert');
           conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals([{_id: 1, a: 1}, {}]);
-          conn.methodManager.apply.getCall(0).args[2].should.be.deep.equals(1);
+          conn.methodManager.apply.getCall(0).args[2].should.be.deep.equals({retryOnDisconnect:true, randomSeed:1});
         })
       });
     });
@@ -256,6 +286,17 @@ describe('CollectionManager', function () {
           res.should.have.length(1);
           res[0].should.be.deep.equal({_id: '2', a: 1});
         });
+    });
+
+    it('should be able to disable retryOnDisconnect', function () {
+      return manager.insert({_id: 1, a: 1}, {retryOnDisconnect: false}, {seed: 1}).then(() => {
+        return Promise.resolve().then(() => {
+          conn.methodManager.apply.should.have.callCount(1);
+          conn.methodManager.apply.getCall(0).args[0].should.be.equals('/test/insert');
+          conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals([{_id: 1, a: 1}, {retryOnDisconnect:false}]);
+          conn.methodManager.apply.getCall(0).args[2].should.be.deep.equals({retryOnDisconnect:false, randomSeed:1});
+        })
+      });
     });
   });
 

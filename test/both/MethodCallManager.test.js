@@ -33,7 +33,7 @@ describe('MethodCallManager', function () {
   describe('apply', function () {
     it('should make a call and wait for result', function () {
       const manager = new MethodCallManager(conn);
-      const call = manager.apply('test', [1,2,3], 10);
+      const call = manager.apply('test', [1,2,3], {randomSeed: 10});
       conn.sendMethod.should.have.callCount(1);
       conn.sendMethod.getCall(0).args.should.be.deep.equal([
         'test', [1,2,3], call.id, 10
@@ -110,6 +110,18 @@ describe('MethodCallManager', function () {
       call.isPending.should.be.true;
       const handler = conn.on.getCall(1).args[1];
       handler();
+      call.isPending.should.be.false;
+      call.isSent.should.be.true;
+    });
+
+    it('should resend method if disconnected on sent state', function () {
+      const manager = new MethodCallManager(conn);
+      const call = manager.apply('test', [], {retryOnDisconnect:true});
+      call.isSent.should.be.true;
+      manager._handleDisconnected();
+      call.isPending.should.be.true;
+      call.isSent.should.be.false;
+      manager._handleConnected();
       call.isPending.should.be.false;
       call.isSent.should.be.true;
     });
