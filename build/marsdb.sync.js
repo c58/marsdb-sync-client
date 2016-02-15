@@ -483,6 +483,7 @@ var DDPConnection = function (_EventEmitter) {
     _this._autoReconnect = autoReconnect;
     _this._socket = socket;
     _this._status = CONN_STATUS.DISCONNECTED;
+    _this._fullConnectedOnce = false;
 
     _this._heartbeat = new _HeartbeatManager2.default(HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT);
     _this._heartbeat.on('timeout', (0, _bind3.default)(_this._handleHearbeatTimeout, _this));
@@ -667,16 +668,18 @@ var DDPConnection = function (_EventEmitter) {
     key: '_handleConnectedMessage',
     value: function _handleConnectedMessage(msg) {
       if (!this.isConnected) {
-        this._setStatus(CONN_STATUS.CONNECTED, this._reconnecting);
+        var isTrulyReconnected = this._fullConnectedOnce && this._reconnecting;
+        this._setStatus(CONN_STATUS.CONNECTED, isTrulyReconnected);
         this._sessionId = msg.session;
         this._reconnecting = false;
+        this._fullConnectedOnce = true;
       }
     }
   }, {
     key: '_handleClose',
     value: function _handleClose() {
       this._heartbeat._clearTimers();
-      this._setStatus(CONN_STATUS.DISCONNECTED);
+      this._setStatus(CONN_STATUS.DISCONNECTED, this._fullConnectedOnce);
 
       if (this._autoReconnect) {
         this._reconnecting = false;
@@ -1755,15 +1758,20 @@ function configure() {
   (0, _invariant2.default)(options.socket || typeof WebSocket !== 'undefined', 'configure(...): no socket consturctor provided and not available in global');
   (0, _invariant2.default)(!_connection, 'configure(...): connection already configured');
 
+  // Initiate DDPConnection
   options.socket = options.socket || WebSocket;
   _connection = new _DDPConnection2.default(options);
   Collection.defaultDelegate((0, _CollectionManager.createCollectionDelegate)(_connection));
   Collection.defaultCursor((0, _CursorWithSub.createCursorWithSub)(_connection));
+
+  // Create connectionmanagers.
+  // The order is IMPORTANT, firstest managers handle
+  // connection state changes firstly.
   _connection.customManagers = (0, _map3.default)(_managers, function (x) {
     return new x(_connection);
   });
-  _connection.subManager = new _SubscriptionManager2.default(_connection);
   _connection.methodManager = new _MethodCallManager2.default(_connection);
+  _connection.subManager = new _SubscriptionManager2.default(_connection);
   _connection.errorManager = new _ErrorManager2.default(_connection);
   _connection.connect();
   return _connection;

@@ -62,6 +62,7 @@ var DDPConnection = function (_EventEmitter) {
     _this._autoReconnect = autoReconnect;
     _this._socket = socket;
     _this._status = CONN_STATUS.DISCONNECTED;
+    _this._fullConnectedOnce = false;
 
     _this._heartbeat = new _HeartbeatManager2.default(HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT);
     _this._heartbeat.on('timeout', (0, _bind3.default)(_this._handleHearbeatTimeout, _this));
@@ -246,16 +247,18 @@ var DDPConnection = function (_EventEmitter) {
     key: '_handleConnectedMessage',
     value: function _handleConnectedMessage(msg) {
       if (!this.isConnected) {
-        this._setStatus(CONN_STATUS.CONNECTED, this._reconnecting);
+        var isTrulyReconnected = this._fullConnectedOnce && this._reconnecting;
+        this._setStatus(CONN_STATUS.CONNECTED, isTrulyReconnected);
         this._sessionId = msg.session;
         this._reconnecting = false;
+        this._fullConnectedOnce = true;
       }
     }
   }, {
     key: '_handleClose',
     value: function _handleClose() {
       this._heartbeat._clearTimers();
-      this._setStatus(CONN_STATUS.DISCONNECTED);
+      this._setStatus(CONN_STATUS.DISCONNECTED, this._fullConnectedOnce);
 
       if (this._autoReconnect) {
         this._reconnecting = false;
