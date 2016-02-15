@@ -302,7 +302,7 @@ describe('CollectionManager', function () {
 
   describe('#_handleRemoteAdded', function () {
     it('should insert new document', function () {
-      return manager._handleRemoteAdded({id: 1, fields: {a: 1}}).then(() => {
+      return manager._handleRemoteAdded({collection: 'test', id: 1, fields: {a: 1}}).then(() => {
         return db.findOne(1);
       }).then((doc) => {
         doc.should.be.deep.equals({_id: 1, a: 1});
@@ -311,7 +311,7 @@ describe('CollectionManager', function () {
 
     it('should replace document if it exists', function () {
       return db.insert({_id: 1, a: 1}).then(() => {
-        return manager._handleRemoteAdded({id: 1, fields: {a: 2}});
+        return manager._handleRemoteAdded({collection: 'test', id: 1, fields: {a: 2}});
       }).then(() => {
         return db.findOne(1);
       }).then((doc) => {
@@ -321,7 +321,7 @@ describe('CollectionManager', function () {
 
     it('should ignore id in fields', function () {
       return db.insert({_id: 1, a: 1}).then(() => {
-        return manager._handleRemoteAdded({id: 1, fields: {_id: 123, a: 2}});
+        return manager._handleRemoteAdded({collection: 'test', id: 1, fields: {_id: 123, a: 2}});
       }).then(() => {
         return Promise.all([db.findOne(1), db.findOne(123)]);
       }).then((docs) => {
@@ -330,12 +330,20 @@ describe('CollectionManager', function () {
         expect(docs[1]).to.be.undefined;
       });
     });
+
+    it('should not inser doc from different collection', function () {
+      return manager._handleRemoteAdded({collection: 'test2', id: 1, fields: {a: 1}}).then(() => {
+        return db.findOne(1);
+      }).then((doc) => {
+        expect(doc).to.be.undefined;
+      });
+    });
   });
 
   describe('#_handleRemoteChanged', function () {
     it('should set only new fields', function () {
       return db.insert({_id: 1, a: 1, b: 2}).then(() => {
-        return manager._handleRemoteChanged({id: 1, fields: {b: 3}})
+        return manager._handleRemoteChanged({collection: 'test', id: 1, fields: {b: 3}})
       }).then(() => {
         return db.findOne(1);
       }).then((doc) => {
@@ -345,7 +353,7 @@ describe('CollectionManager', function () {
 
     it('should clear fields', function () {
       return db.insert({_id: 1, a: 1, b: 2}).then(() => {
-        return manager._handleRemoteChanged({id: 1, cleared: ['b', 'c']})
+        return manager._handleRemoteChanged({collection: 'test', id: 1, cleared: ['b', 'c']})
       }).then(() => {
         return db.findOne(1);
       }).then((doc) => {
@@ -355,7 +363,7 @@ describe('CollectionManager', function () {
 
     it('should ignore id in fields', function () {
       return db.insert({_id: 1, a: 1, b: 2}).then(() => {
-        return manager._handleRemoteChanged({id: 1, fields: {b: 3, _id: 3}})
+        return manager._handleRemoteChanged({collection: 'test', id: 1, fields: {b: 3, _id: 3}})
       }).then(() => {
         return Promise.all([db.findOne(1), db.findOne(3)]);
       }).then((docs) => {
@@ -367,7 +375,7 @@ describe('CollectionManager', function () {
 
     it('should do nothing if fields and clear not presented', function () {
       return db.insert({_id: 1, a: 1, b: 2}).then(() => {
-        return manager._handleRemoteChanged({id: 1})
+        return manager._handleRemoteChanged({collection: 'test', id: 1})
       }).then(() => {
         return db.findOne(1);
       }).then((doc) => {
@@ -377,7 +385,7 @@ describe('CollectionManager', function () {
 
     it('should do nothing if object with given id not exists', function () {
       return db.insert({_id: 1, a: 1, b: 2}).then(() => {
-        return manager._handleRemoteChanged({id: 2, fields: {b: 2}, cleared: ['b', 'c']})
+        return manager._handleRemoteChanged({collection: 'test', id: 2, fields: {b: 2}, cleared: ['b', 'c']})
       }).then(() => {
         return Promise.all([db.findOne(1), db.findOne(2)]);
       }).then((docs) => {
@@ -386,16 +394,36 @@ describe('CollectionManager', function () {
         expect(docs[1]).to.be.undefined;
       });
     });
+
+    it('should not update doc from another collection', function () {
+      return db.insert({_id: 1, a: 1, b: 2}).then(() => {
+        return manager._handleRemoteChanged({collection: 'test2', id: 1, fields: {b: 2}, cleared: ['b', 'c']})
+      }).then(() => {
+        return db.findOne(1);
+      }).then((doc) => {
+        doc.should.be.deep.equal({_id: 1, a: 1, b: 2});
+      });
+    });
   });
 
   describe('#_handleRemoteRemoved', function () {
     it('should remove a document', function () {
       return db.insert({_id: 1, a: 1, b: 2}).then(() => {
-        return manager._handleRemoteRemoved({id: 1})
+        return manager._handleRemoteRemoved({id: 1, collection: 'test'})
       }).then(() => {
         return db.findOne(1);
       }).then((doc) => {
         expect(doc).to.be.undefined;
+      });
+    });
+
+    it('should not remove a document from another collection', function () {
+      return db.insert({_id: 1, a: 1, b: 2}).then(() => {
+        return manager._handleRemoteRemoved({id: 1, collection: 'test2'})
+      }).then(() => {
+        return db.findOne(1);
+      }).then((doc) => {
+        expect(doc).to.be.not.undefined;
       });
     });
   });
