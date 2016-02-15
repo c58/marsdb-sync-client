@@ -1,4 +1,5 @@
 import { createCollectionDelegate } from '../../lib/CollectionManager';
+import { _resetStartup } from 'marsdb/dist/Collection';
 import Collection from 'marsdb';
 import chai, { expect } from 'chai';
 import sinon from 'sinon';
@@ -11,6 +12,7 @@ const _defaultDelegate = Collection.defaultDelegate();
 describe('CollectionManager', function () {
   let conn, db, manager;
   beforeEach(function () {
+    _resetStartup();
     conn = {
       on: sinon.spy(),
       sendResult: sinon.spy(),
@@ -28,6 +30,7 @@ describe('CollectionManager', function () {
   });
 
   afterEach(function () {
+    _resetStartup();
     Collection.defaultDelegate(_defaultDelegate);
   });
 

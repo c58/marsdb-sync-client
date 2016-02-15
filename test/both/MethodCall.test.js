@@ -75,7 +75,7 @@ describe('MethodCall', function () {
       const call = new MethodCall('test', [1,2,3], 0, conn);
       call._invoke();
       call._handleResult(new Error());
-      return call.result().should.be.eventually.rejecte;
+      return call.result().should.be.eventually.rejected;
     });
   });
 
