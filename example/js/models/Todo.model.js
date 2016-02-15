@@ -1,4 +1,4 @@
-import Collection from './Collection';
+import Collection from 'marsdb';
 
 const TodoModel = new Collection('todos');
 export default TodoModel;
