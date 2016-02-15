@@ -127,15 +127,12 @@ function configure() {
   _connection = new _DDPConnection2.default(options);
   Collection.defaultDelegate((0, _CollectionManager.createCollectionDelegate)(_connection));
   Collection.defaultCursor((0, _CursorWithSub.createCursorWithSub)(_connection));
-  Collection.startup(function () {
-    _connection.customManagers = (0, _map3.default)(_managers, function (x) {
-      return new x(_connection);
-    });
-    _connection.subManager = new _SubscriptionManager2.default(_connection);
-    _connection.methodManager = new _MethodCallManager2.default(_connection);
-    _connection.errorManager = new _ErrorManager2.default(_connection);
-    _connection.connect();
+  _connection.customManagers = (0, _map3.default)(_managers, function (x) {
+    return new x(_connection);
   });
-
+  _connection.subManager = new _SubscriptionManager2.default(_connection);
+  _connection.methodManager = new _MethodCallManager2.default(_connection);
+  _connection.errorManager = new _ErrorManager2.default(_connection);
+  _connection.connect();
   return _connection;
 }

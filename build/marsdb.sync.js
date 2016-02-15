@@ -1759,26 +1759,17 @@ function configure() {
   _connection = new _DDPConnection2.default(options);
   Collection.defaultDelegate((0, _CollectionManager.createCollectionDelegate)(_connection));
   Collection.defaultCursor((0, _CursorWithSub.createCursorWithSub)(_connection));
-  Collection.startup(function () {
-    _connection.customManagers = (0, _map3.default)(_managers, function (x) {
-      return new x(_connection);
-    });
-    _connection.subManager = new _SubscriptionManager2.default(_connection);
-    _connection.methodManager = new _MethodCallManager2.default(_connection);
-    _connection.errorManager = new _ErrorManager2.default(_connection);
-    _connection.connect();
+  _connection.customManagers = (0, _map3.default)(_managers, function (x) {
+    return new x(_connection);
   });
-
+  _connection.subManager = new _SubscriptionManager2.default(_connection);
+  _connection.methodManager = new _MethodCallManager2.default(_connection);
+  _connection.errorManager = new _ErrorManager2.default(_connection);
+  _connection.connect();
   return _connection;
 }
 },{"./CollectionManager":1,"./CursorWithSub":2,"./DDPConnection":3,"./ErrorManager":4,"./MethodCallManager":7,"./SubscriptionManager":9,"fast.js/map":20,"invariant":24,"marsdb":undefined}],11:[function(require,module,exports){
-const client = require('./dist');
-module.exports = {
-  configure: client.configure,
-  apply: client.apply,
-  call: client.call,
-  subscribe: client.subscribe,
-};
+module.exports = require('./dist');
 
 },{"./dist":10}],12:[function(require,module,exports){
 'use strict';
