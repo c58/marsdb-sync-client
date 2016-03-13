@@ -33,10 +33,36 @@ npm start
 
 Then, just point your browser at `http://localhost:3000`.
 
+### Usage with Meteor server and LocalForage
+`marsdb-sync-client` is a DDP client, so it should work well with Meteor server.
+But it have an extension for syncing local cache with a server side. The extension is
+implemented by `marsdb-sync-server` and is follow:
+
+  * Each collection have additional server method called `/${myCollection}/sync`
+  * This method invoked by MarsSync client on init stage for each collection
+  * Method invoked with one argument: list of all available document ids in a local cache
+  * Method must return a sublist of given ids that is NOT presented in a server anymore (deleted ids).
+
+You should implement it by yourself for each collection in Meteor's server-side code.
+In the future it might be a package for Meteor (it would be great if you implement it).
+
+Example of a sync method for some collection:
+
+```javascript
+// /server/collections/Posts.js
+Posts = new Meteor.Collection('posts');
+
+Meteor.method('/posts/sync', function(remoteIds) {
+  const existingDocs = Posts.find({_id: {$in: remoteIds}}, {fields: {_id: 1}}).fetch();
+  const existingIdsSet = new Set(existingDocs.map(doc => doc._id));
+  return remoteIds.filter(id => !existingIdsSet.has(id));
+});
+```
+
 ### Configure a client
 ```javascript
 import Collection from 'marsdb';
-import MarsSync from 'marsdb-sync-client';
+import * as MarsSync from 'marsdb-sync-client';
 
 // Setup marsdb-sync-client
 MarsSync.configure({ url: 'ws://localhost:3000' });
@@ -100,7 +126,7 @@ posts.find(
 
 ### Methods and subscriptions
 ```javascript
-import MarsSync from 'marsdb-sync-client';
+import * as MarsSync from 'marsdb-sync-client';
 
 MarsSync.call('myMethod', 1, 2, 3).result().then((res) => {
   // Result of the method in "res"
