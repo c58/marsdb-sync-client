@@ -104,7 +104,7 @@ describe('DDPConnection', function () {
       conn._rawConn.onopen();
       conn._rawConn.send.should.have.callCount(1);
       EJSON.parse(conn._rawConn.send.getCall(0).args[0]).should.be.deep.equal({
-        msg: 'connect', session: null, version: 1, support: [1]
+        msg: 'connect', version: '1', support: ['1']
       });
       conn._status.should.be.equal(CONN_STATUS.CONNECTING);
       conn._handleConnectedMessage({msg: 'connected', session: '123'})
@@ -219,7 +219,7 @@ describe('DDPConnection', function () {
       conn._processMessage({msg: 'removed'});
       conn._processMessage({msg: 'changed'});
       conn._processMessage({msg: 'connected'});
-      (() => conn._processMessage({msg: 'unknown'})).should.throw(Error);
+      (() => conn._processMessage({msg: 'unknown'})).should.not.throw(Error);
 
       const cb = sinon.spy();
       conn.once('error', cb);

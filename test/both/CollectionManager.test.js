@@ -135,7 +135,7 @@ describe('CollectionManager', function () {
         return Promise.resolve().then(() => {
           conn.methodManager.apply.should.have.callCount(1);
           conn.methodManager.apply.getCall(0).args[0].should.be.equals('/test/update');
-          conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals([{_id: 3}, {$set: {a: 3}}, {retryOnDisconnect:false}]);
+          conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals([{_id: 3}, {$set: {a: 3}}, {}]);
           conn.methodManager.apply.getCall(0).args[2].should.be.deep.equals({retryOnDisconnect:false});
         })
       })
@@ -180,7 +180,7 @@ describe('CollectionManager', function () {
           db.insertAll.getCall(0).args[1].should.be.deep.equal({quiet: true});
           conn.methodManager.apply.should.have.callCount(1);
           conn.methodManager.apply.getCall(0).args[0].should.be.equals('/test/remove');
-          conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals([{}, {multi: true}]);
+          conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals([{}]);
         })
       });
     });
@@ -216,7 +216,7 @@ describe('CollectionManager', function () {
           return Promise.resolve().then(() => {
             conn.methodManager.apply.should.have.callCount(1);
             conn.methodManager.apply.getCall(0).args[0].should.be.equals('/test/remove');
-            conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals(['123', {retryOnDisconnect:false}]);
+            conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals(['123']);
             conn.methodManager.apply.getCall(0).args[2].should.be.deep.equals({retryOnDisconnect:false});
           })
         })
@@ -264,7 +264,7 @@ describe('CollectionManager', function () {
           db.remove.getCall(0).args[1].should.be.deep.equal({quiet: true});
           conn.methodManager.apply.should.have.callCount(1);
           conn.methodManager.apply.getCall(0).args[0].should.be.equals('/test/insert');
-          conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals([{_id: 1, a: 1}, {}]);
+          conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals([{_id: 1, a: 1}]);
           conn.methodManager.apply.getCall(0).args[2].should.be.deep.equals({retryOnDisconnect:true, randomSeed:1});
         })
       });
@@ -293,7 +293,7 @@ describe('CollectionManager', function () {
         return Promise.resolve().then(() => {
           conn.methodManager.apply.should.have.callCount(1);
           conn.methodManager.apply.getCall(0).args[0].should.be.equals('/test/insert');
-          conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals([{_id: 1, a: 1}, {retryOnDisconnect:false}]);
+          conn.methodManager.apply.getCall(0).args[1].should.be.deep.equals([{_id: 1, a: 1}]);
           conn.methodManager.apply.getCall(0).args[2].should.be.deep.equals({retryOnDisconnect:false, randomSeed:1});
         })
       });
