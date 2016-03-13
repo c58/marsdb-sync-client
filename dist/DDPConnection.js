@@ -33,7 +33,7 @@ var EJSON = typeof window !== 'undefined' && window.Mars ? window.Mars.EJSON : r
 var Random = typeof window !== 'undefined' && window.Mars ? window.Mars.Random : require('marsdb').Random;
 
 // Status of a DDP connection
-var DDP_VERSION = 1;
+var DDP_VERSION = '1';
 var HEARTBEAT_INTERVAL = 17500;
 var HEARTBEAT_TIMEOUT = 15000;
 var RECONNECT_INTERVAL = 5000;
@@ -236,12 +236,18 @@ var DDPConnection = function (_EventEmitter) {
     key: '_handleOpen',
     value: function _handleOpen() {
       this._heartbeat.waitPing();
-      this._sendMessage({
+
+      var connMsg = {
         msg: 'connect',
-        session: this._sessionId,
         version: DDP_VERSION,
         support: [DDP_VERSION]
-      });
+      };
+
+      if (this._sessionId) {
+        connMsg.session = this._sessionId;
+      }
+
+      this._sendMessage(connMsg);
     }
   }, {
     key: '_handleConnectedMessage',
@@ -307,7 +313,7 @@ var DDPConnection = function (_EventEmitter) {
         case 'error':
           return this.emitAsync('message:' + msg.msg, msg);
         default:
-          throw new Error('Unknown message type ' + msg.msg);
+        // just ignore unknown message
       }
     }
   }, {

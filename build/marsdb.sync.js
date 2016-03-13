@@ -30,6 +30,8 @@ var _keys3 = _interopRequireDefault(_keys2);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+function _objectWithoutProperties(obj, keys) { var target = {}; for (var i in obj) { if (keys.indexOf(i) >= 0) continue; if (!Object.prototype.hasOwnProperty.call(obj, i)) continue; target[i] = obj[i]; } return target; }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
@@ -93,8 +95,11 @@ function createCollectionDelegate(connection) {
         var randomId = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
         var localInsert = undefined;
+        var quiet = options.quiet;
+        var retryOnDisconnect = options.retryOnDisconnect;
+        var waitResult = options.waitResult;
 
-        if (!options.quiet) {
+        if (!quiet) {
           var methodName = '/' + this.db.modelName + '/insert';
           var handleInsertError = function handleInsertError(e) {
             return localInsert.then(function () {
@@ -104,12 +109,11 @@ function createCollectionDelegate(connection) {
             });
           };
           var applyOpts = {
-            retryOnDisconnect: options.retryOnDisconnect === false ? false : true, // eslint-disable-line
+            retryOnDisconnect: retryOnDisconnect === false ? false : true, // eslint-disable-line
             randomSeed: randomId.seed
           };
-          var result = connection.methodManager.apply(methodName, [doc, options], applyOpts).then(null, handleInsertError);
-
-          if (options.waitResult) {
+          var result = connection.methodManager.apply(methodName, [doc], applyOpts).then(null, handleInsertError);
+          if (waitResult) {
             return result;
           } else {
             result.then(null, function (e) {
@@ -146,8 +150,11 @@ function createCollectionDelegate(connection) {
         var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
 
         var localRemove = undefined;
+        var quiet = options.quiet;
+        var retryOnDisconnect = options.retryOnDisconnect;
+        var waitResult = options.waitResult;
 
-        if (!options.quiet) {
+        if (!quiet) {
           var methodName = '/' + this.db.modelName + '/remove';
           var handleRemoveError = function handleRemoveError(e) {
             return localRemove.then(function (remDocs) {
@@ -157,11 +164,11 @@ function createCollectionDelegate(connection) {
             });
           };
           var applyOpts = {
-            retryOnDisconnect: options.retryOnDisconnect === false ? false : true };
+            retryOnDisconnect: retryOnDisconnect === false ? false : true };
           // eslint-disable-line
-          var result = connection.methodManager.apply(methodName, [query, options], applyOpts).then(null, handleRemoveError);
+          var result = connection.methodManager.apply(methodName, [query], applyOpts).then(null, handleRemoveError);
 
-          if (options.waitResult) {
+          if (waitResult) {
             return result;
           } else {
             result.then(null, function (e) {
@@ -198,8 +205,13 @@ function createCollectionDelegate(connection) {
         var options = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
         var localUpdate = undefined;
+        var quiet = options.quiet;
+        var retryOnDisconnect = options.retryOnDisconnect;
+        var waitResult = options.waitResult;
 
-        if (!options.quiet) {
+        var otherOpts = _objectWithoutProperties(options, ['quiet', 'retryOnDisconnect', 'waitResult']);
+
+        if (!quiet) {
           var methodName = '/' + this.db.modelName + '/update';
           var handleUpdateError = function handleUpdateError(e) {
             return localUpdate.then(function (res) {
@@ -218,11 +230,11 @@ function createCollectionDelegate(connection) {
           };
 
           var applyOpts = {
-            retryOnDisconnect: options.retryOnDisconnect === false ? false : true };
+            retryOnDisconnect: retryOnDisconnect === false ? false : true };
           // eslint-disable-line
-          var result = connection.methodManager.apply(methodName, [query, modifier, options], applyOpts).then(null, handleUpdateError);
+          var result = connection.methodManager.apply(methodName, [query, modifier, otherOpts], applyOpts).then(null, handleUpdateError);
 
-          if (options.waitResult) {
+          if (waitResult) {
             return result;
           } else {
             result.then(null, function (e) {
@@ -476,7 +488,7 @@ var EJSON = typeof window !== 'undefined' && window.Mars ? window.Mars.EJSON : r
 var Random = typeof window !== 'undefined' && window.Mars ? window.Mars.Random : require('marsdb').Random;
 
 // Status of a DDP connection
-var DDP_VERSION = 1;
+var DDP_VERSION = '1';
 var HEARTBEAT_INTERVAL = 17500;
 var HEARTBEAT_TIMEOUT = 15000;
 var RECONNECT_INTERVAL = 5000;
@@ -679,12 +691,18 @@ var DDPConnection = function (_EventEmitter) {
     key: '_handleOpen',
     value: function _handleOpen() {
       this._heartbeat.waitPing();
-      this._sendMessage({
+
+      var connMsg = {
         msg: 'connect',
-        session: this._sessionId,
         version: DDP_VERSION,
         support: [DDP_VERSION]
-      });
+      };
+
+      if (this._sessionId) {
+        connMsg.session = this._sessionId;
+      }
+
+      this._sendMessage(connMsg);
     }
   }, {
     key: '_handleConnectedMessage',
@@ -750,7 +768,7 @@ var DDPConnection = function (_EventEmitter) {
         case 'error':
           return this.emitAsync('message:' + msg.msg, msg);
         default:
-          throw new Error('Unknown message type ' + msg.msg);
+        // just ignore unknown message
       }
     }
   }, {
