@@ -52,10 +52,12 @@ Example of a sync method for some collection:
 // /server/collections/Posts.js
 Posts = new Meteor.Collection('posts');
 
-Meteor.method('/posts/sync', function(remoteIds) {
-  const existingDocs = Posts.find({_id: {$in: remoteIds}}, {fields: {_id: 1}}).fetch();
-  const existingIdsSet = new Set(existingDocs.map(doc => doc._id));
-  return remoteIds.filter(id => !existingIdsSet.has(id));
+Meteor.methods({
+  '/posts/sync': function(remoteIds) {
+    const existingDocs = Posts.find({_id: {$in: remoteIds}}, {fields: {_id: 1}}).fetch();
+    const existingIdsSet = new Set(existingDocs.map(doc => doc._id));
+    return remoteIds.filter(id => !existingIdsSet.has(id));
+  }
 });
 ```
 
