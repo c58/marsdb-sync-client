@@ -13,7 +13,6 @@
     "babel-preset-stage-0": "^6.3.13",
     "classnames": "^2.1.5",
     "connect-history-api-fallback": "^1.1.0",
-    "ddp.js": "^1.1.0",
     "express": "^4.13.3",
     "history": "1.17.0",
     "marsdb": "^0.6.0",

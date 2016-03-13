@@ -8,7 +8,7 @@ import requireDir from 'require-dir';
 
 
 // Config
-const APP_PORT = 3000;
+const APP_PORT = 3001;
 
 // Configure webpack compiler
 const compiler = webpack({

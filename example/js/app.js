@@ -1,7 +1,7 @@
 import 'babel-polyfill';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import MarsClient from 'marsdb-sync-client';
+import * as MarsClient from 'marsdb-sync-client';
 import Collection from 'marsdb';
 import DDPTestComponent from './components/DDPTestComponent';
 

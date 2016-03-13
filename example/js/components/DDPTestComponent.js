@@ -1,6 +1,6 @@
 import React from 'react';
 import TodoModel from '../models/Todo.model';
-import MarsClient from 'marsdb-sync-client';
+import * as MarsClient from 'marsdb-sync-client';
 
 
 export default class DDPTestComponent extends React.Component {
