@@ -67,6 +67,12 @@ function createCollectionDelegate(connection) {
       connection.on('message:added', (0, _bind3.default)(_this._handleRemoteAdded, _this));
       connection.on('message:changed', (0, _bind3.default)(_this._handleRemoteChanged, _this));
       connection.on('message:removed', (0, _bind3.default)(_this._handleRemoteRemoved, _this));
+
+      Collection.startup(function () {
+        if (connection.isConnected) {
+          _this._handleConnected(false);
+        }
+      });
       return _this;
     }
 
