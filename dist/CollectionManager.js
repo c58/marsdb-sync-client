@@ -67,7 +67,8 @@ function createCollectionDelegate(connection) {
       connection.on('message:changed', (0, _bind3.default)(_this._handleRemoteChanged, _this));
       connection.on('message:removed', (0, _bind3.default)(_this._handleRemoteRemoved, _this));
 
-      Collection.startup(function () {
+      // For ensure that collection is initialized
+      process.nextTick(function () {
         if (connection.isConnected) {
           _this._handleConnected(false);
         }
