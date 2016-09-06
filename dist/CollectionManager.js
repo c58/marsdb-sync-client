@@ -102,28 +102,27 @@ function createCollectionDelegate(connection) {
 
         var localInsert = undefined;
         var quiet = options.quiet;
-        var retryOnDisconnect = options.retryOnDisconnect;
+        var _options$retryOnDisco = options.retryOnDisconnect;
+        var retryOnDisconnect = _options$retryOnDisco === undefined ? true : _options$retryOnDisco;
         var waitResult = options.waitResult;
 
         if (!quiet) {
           var methodName = '/' + this.db.modelName + '/insert';
-          var handleInsertError = function handleInsertError(e) {
-            return localInsert.then(function () {
-              return _this2.db.remove(doc._id, { quiet: true });
-            }).then(function () {
-              throw e;
-            });
-          };
           var applyOpts = {
-            retryOnDisconnect: retryOnDisconnect === false ? false : true, // eslint-disable-line
+            retryOnDisconnect: !!retryOnDisconnect,
             randomSeed: randomId.seed
           };
-          var result = connection.methodManager.apply(methodName, [doc], applyOpts).then(null, handleInsertError);
+          var result = connection.methodManager.apply(methodName, [doc], applyOpts);
+
           if (waitResult) {
             return result;
           } else {
             result.then(null, function (e) {
-              return console.error('Error while calling remote method:', e);
+              return localInsert.then(function () {
+                return _this2.db.remove(doc._id, { quiet: true });
+              }).then(function () {
+                throw e;
+              });
             });
           }
         }
@@ -157,28 +156,24 @@ function createCollectionDelegate(connection) {
 
         var localRemove = undefined;
         var quiet = options.quiet;
-        var retryOnDisconnect = options.retryOnDisconnect;
+        var _options$retryOnDisco2 = options.retryOnDisconnect;
+        var retryOnDisconnect = _options$retryOnDisco2 === undefined ? true : _options$retryOnDisco2;
         var waitResult = options.waitResult;
 
         if (!quiet) {
           var methodName = '/' + this.db.modelName + '/remove';
-          var handleRemoveError = function handleRemoveError(e) {
-            return localRemove.then(function (remDocs) {
-              return _this3.db.insertAll(remDocs, { quiet: true });
-            }).then(function () {
-              throw e;
-            });
-          };
-          var applyOpts = {
-            retryOnDisconnect: retryOnDisconnect === false ? false : true };
-          // eslint-disable-line
-          var result = connection.methodManager.apply(methodName, [query], applyOpts).then(null, handleRemoveError);
+          var applyOpts = { retryOnDisconnect: !!retryOnDisconnect };
+          var result = connection.methodManager.apply(methodName, [query], applyOpts);
 
           if (waitResult) {
             return result;
           } else {
             result.then(null, function (e) {
-              return console.error('Error while calling remote method:', e);
+              return localRemove.then(function (remDocs) {
+                return _this3.db.insertAll(remDocs, { quiet: true });
+              }).then(function () {
+                throw e;
+              });
             });
           }
         }
@@ -212,39 +207,34 @@ function createCollectionDelegate(connection) {
 
         var localUpdate = undefined;
         var quiet = options.quiet;
-        var retryOnDisconnect = options.retryOnDisconnect;
+        var _options$retryOnDisco3 = options.retryOnDisconnect;
+        var retryOnDisconnect = _options$retryOnDisco3 === undefined ? true : _options$retryOnDisco3;
         var waitResult = options.waitResult;
 
         var otherOpts = _objectWithoutProperties(options, ['quiet', 'retryOnDisconnect', 'waitResult']);
 
         if (!quiet) {
           var methodName = '/' + this.db.modelName + '/update';
-          var handleUpdateError = function handleUpdateError(e) {
-            return localUpdate.then(function (res) {
-              return (0, _map3.default)(res.updated, function (d, i) {
-                if (!res.original[i]) {
-                  return _this4.db.remove(d._id, { quiet: true });
-                } else {
-                  var docId = res.original[i]._id;
-                  delete res.original[i]._id;
-                  return _this4.db.update({ _id: docId }, res.original[i], { quiet: true, upsert: true });
-                }
-              });
-            }).then(function () {
-              throw e;
-            });
-          };
-
-          var applyOpts = {
-            retryOnDisconnect: retryOnDisconnect === false ? false : true };
-          // eslint-disable-line
-          var result = connection.methodManager.apply(methodName, [query, modifier, otherOpts], applyOpts).then(null, handleUpdateError);
+          var applyOpts = { retryOnDisconnect: !!retryOnDisconnect };
+          var result = connection.methodManager.apply(methodName, [query, modifier, otherOpts], applyOpts);
 
           if (waitResult) {
             return result;
           } else {
             result.then(null, function (e) {
-              return console.error('Error while calling remote method:', e);
+              return localUpdate.then(function (res) {
+                return (0, _map3.default)(res.updated, function (d, i) {
+                  if (!res.original[i]) {
+                    return _this4.db.remove(d._id, { quiet: true });
+                  } else {
+                    var docId = res.original[i]._id;
+                    delete res.original[i]._id;
+                    return _this4.db.update({ _id: docId }, res.original[i], { quiet: true, upsert: true });
+                  }
+                });
+              }).then(function () {
+                throw e;
+              });
             });
           }
         }
