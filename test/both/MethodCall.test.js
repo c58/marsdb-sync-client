@@ -77,6 +77,14 @@ describe('MethodCall', function () {
       call._handleResult(new Error());
       return call.result().should.be.eventually.rejected;
     });
+
+    it('should resolve when result is undefined', () => {
+      const cb = sinon.spy();
+      const call = new MethodCall('test', [1,2,3], 0, conn);
+      call._invoke();
+      call._handleResult(null, undefined);
+      return call.result().should.be.eventually.fulfilled;
+    });
   });
 
   describe('#updated', function () {
