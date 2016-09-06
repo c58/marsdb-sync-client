@@ -296,7 +296,10 @@ describe('CollectionManager', function () {
         ])
       )}
       return manager.insert({_id: '1', a: 2}, {waitResult: true})
-        .then(() => db.find())
+        .then((docId) => {
+          expect(docId).to.be.equal('1');
+          return db.find();
+        })
         .then((res) => {
           res.should.have.length(1);
           res[0].should.be.deep.equal({_id: '2', a: 1});
