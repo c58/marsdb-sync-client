@@ -107,23 +107,30 @@ describe('CollectionManager', function () {
     it('should wait until server result when waitResult options passed', function () {
       return db.insert({a: 1, _id: '123'}, {quiet: true}).then(() => {
         const cb = sinon.spy();
-        conn.methodManager = { apply: sinon.spy(() => ({
-          then: () => {
-            return Promise.all([
-              Promise.resolve({
-                modified: 1,
-                updated: [{a: 3, _id: '123'}],
-                original: [{a: 1, _id: '123'}],
-              }),
-              db.update('123', {$set: {a: 3}}, {quiet: true})
-            ])
-          },
-        }))}
+        conn.methodManager = { apply: sinon.spy(() =>
+          Promise.all([
+            Promise.resolve({
+              modified: 1,
+              updated: [{a: 2, _id: '123'}],
+              original: [{a: 1, _id: '123'}],
+            }),
+            db.update('123', {$set: {a: 2}}, {quiet: true})
+          ])
+        )}
         return manager.update('123', {$set: {a: 2}}, {waitResult: true})
           .then(() => db.findOne('123'))
           .then((res) => {
-            res.should.be.deep.equal({a: 3, _id: '123'});
+            res.should.be.deep.equal({a: 2, _id: '123'});
           });
+      });
+    });
+
+    it('should reject when server return a problem with waitResult', () => {
+      return db.insert({a: 1, _id: '123'}, {quiet: true}).then(() => {
+        const cb = sinon.spy();
+        conn.methodManager = { apply: sinon.spy(() => Promise.reject())}
+        return manager.update('123', {$set: {a: 2}}, {waitResult: true})
+          .should.be.rejected;
       });
     });
 
@@ -191,19 +198,29 @@ describe('CollectionManager', function () {
         {a: 2, _id: '321'}
       ], {quiet: true}).then(() => {
         const cb = sinon.spy();
-        conn.methodManager = { apply: sinon.spy(() => ({
-          then: () => {
-            return Promise.all([
-              Promise.resolve([{a: 1, _id: '123'}, {a: 2, _id: '321'}]),
-              db.remove({}, {quiet: true, multi: true})
-            ])
-          },
-        }))}
+        conn.methodManager = { apply: sinon.spy(() =>
+          Promise.all([
+            Promise.resolve([{a: 1, _id: '123'}, {a: 2, _id: '321'}]),
+            db.remove({}, {quiet: true, multi: true})
+          ])
+        )}
         return manager.remove('123', {waitResult: true})
           .then(() => db.find())
           .then((res) => {
             res.should.have.length(0);
           });
+      });
+    });
+
+    it('should reject when some problem accured when waitResult options passed', function () {
+      return db.insertAll([
+        {a: 1, _id: '123'},
+        {a: 2, _id: '321'}
+      ], {quiet: true}).then(() => {
+        const cb = sinon.spy();
+        conn.methodManager = { apply: sinon.spy(() => Promise.reject())}
+        return manager.remove('123', {waitResult: true})
+          .should.be.rejected;
       });
     });
 
@@ -272,20 +289,25 @@ describe('CollectionManager', function () {
 
     it('should wait until server result when waitResult options passed', function () {
       const cb = sinon.spy();
-      conn.methodManager = { apply: sinon.spy(() => ({
-        then: () => {
-          return Promise.all([
-            Promise.resolve('2'),
-            db.insert({_id: '2', a: 1}, {quiet: true})
-          ])
-        },
-      }))}
+      conn.methodManager = { apply: sinon.spy(() =>
+        Promise.all([
+          Promise.resolve('2'),
+          db.insert({_id: '2', a: 1}, {quiet: true})
+        ])
+      )}
       return manager.insert({_id: '1', a: 2}, {waitResult: true})
         .then(() => db.find())
         .then((res) => {
           res.should.have.length(1);
           res[0].should.be.deep.equal({_id: '2', a: 1});
         });
+    });
+
+    it('should reject on some problem when waitResult options passed', function () {
+      const cb = sinon.spy();
+      conn.methodManager = { apply: sinon.spy(() => Promise.reject())}
+      return manager.insert({_id: '1', a: 2}, {waitResult: true})
+        .should.be.rejected;
     });
 
     it('should be able to disable retryOnDisconnect', function () {
