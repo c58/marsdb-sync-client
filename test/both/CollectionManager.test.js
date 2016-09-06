@@ -289,12 +289,7 @@ describe('CollectionManager', function () {
 
     it('should wait until server result when waitResult options passed', function () {
       const cb = sinon.spy();
-      conn.methodManager = { apply: sinon.spy(() =>
-        Promise.all([
-          Promise.resolve('2'),
-          db.insert({_id: '2', a: 1}, {quiet: true})
-        ])
-      )}
+      conn.methodManager = { apply: sinon.spy(() => Promise.resolve())}
       return manager.insert({_id: '1', a: 2}, {waitResult: true})
         .then((docId) => {
           expect(docId).to.be.equal('1');
@@ -302,7 +297,7 @@ describe('CollectionManager', function () {
         })
         .then((res) => {
           res.should.have.length(1);
-          res[0].should.be.deep.equal({_id: '2', a: 1});
+          res[0].should.be.deep.equal({_id: '1', a: 2});
         });
     });
 
