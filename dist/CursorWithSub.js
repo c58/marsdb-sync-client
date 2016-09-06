@@ -70,6 +70,7 @@ function createCursorWithSub(connection) {
         var sub = _options.sub;
         var waitReady = _options.waitReady;
         var tryCache = _options.tryCache;
+        var keepSub = _options.keepSub;
 
         var superUpdate = function superUpdate() {
           return _get(Object.getPrototypeOf(CursorWithSub.prototype), '_doUpdate', _this2).call(_this2, firstRun);
@@ -81,7 +82,9 @@ function createCursorWithSub(connection) {
           this._subscription = (_connection$subManage = connection.subManager).subscribe.apply(_connection$subManage, _toConsumableArray(sub));
 
           this.once('observeStopped', function () {
-            _this2._subscription.stop();
+            if (!keepSub) {
+              _this2._subscription.stop();
+            }
             delete _this2._subscription;
           });
 
