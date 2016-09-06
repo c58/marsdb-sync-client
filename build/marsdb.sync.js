@@ -983,10 +983,10 @@ var MethodCall = function (_EventEmitter) {
 
     _this.result = function () {
       return _this._promiseMixed(new Promise(function (resolve, reject) {
-        if (_this._error) {
-          reject(_this._error);
-        } else if (_this._result) {
+        if (_this._resulted) {
           resolve(_this._result);
+        } else if (_this._errored) {
+          reject(_this._error);
         } else {
           _this.once(CALL_STATUS.RESULT, resolve);
           _this.once(CALL_STATUS.ERROR, reject);
@@ -1057,9 +1057,11 @@ var MethodCall = function (_EventEmitter) {
     key: '_handleResult',
     value: function _handleResult(error, result) {
       if (error) {
+        this._errored = true;
         this._error = error;
         this._setStatus(CALL_STATUS.ERROR, error);
       } else {
+        this._resulted = true;
         this._result = result;
         this._setStatus(CALL_STATUS.RESULT, result);
       }
