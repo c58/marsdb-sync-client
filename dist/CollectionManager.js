@@ -100,7 +100,7 @@ function createCollectionDelegate(connection) {
         var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
         var randomId = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
-        var localInsert = undefined;
+        var localInsert = _get(Object.getPrototypeOf(CollectionManager.prototype), 'insert', this).call(this, doc, options, randomId);
         var quiet = options.quiet;
         var _options$retryOnDisco = options.retryOnDisconnect;
         var retryOnDisconnect = _options$retryOnDisco === undefined ? true : _options$retryOnDisco;
@@ -112,24 +112,21 @@ function createCollectionDelegate(connection) {
             retryOnDisconnect: !!retryOnDisconnect,
             randomSeed: randomId.seed
           };
-          var result = connection.methodManager.apply(methodName, [doc], applyOpts);
+          var result = connection.methodManager.apply(methodName, [doc], applyOpts).then(null, function (e) {
+            return localInsert.then(function () {
+              return _this2.db.remove(doc._id, { quiet: true });
+            }).then(function () {
+              throw e;
+            });
+          });
 
           if (waitResult) {
             return result.then(function () {
-              return doc._id;
-            });
-          } else {
-            result.then(null, function (e) {
-              return localInsert.then(function () {
-                return _this2.db.remove(doc._id, { quiet: true });
-              }).then(function () {
-                throw e;
-              });
+              return localInsert;
             });
           }
         }
 
-        localInsert = _get(Object.getPrototypeOf(CollectionManager.prototype), 'insert', this).call(this, doc, options, randomId);
         return localInsert;
       }
 
@@ -156,7 +153,7 @@ function createCollectionDelegate(connection) {
 
         var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
 
-        var localRemove = undefined;
+        var localRemove = _get(Object.getPrototypeOf(CollectionManager.prototype), 'remove', this).call(this, query, options);
         var quiet = options.quiet;
         var _options$retryOnDisco2 = options.retryOnDisconnect;
         var retryOnDisconnect = _options$retryOnDisco2 === undefined ? true : _options$retryOnDisco2;
@@ -165,22 +162,21 @@ function createCollectionDelegate(connection) {
         if (!quiet) {
           var methodName = '/' + this.db.modelName + '/remove';
           var applyOpts = { retryOnDisconnect: !!retryOnDisconnect };
-          var result = connection.methodManager.apply(methodName, [query], applyOpts);
+          var result = connection.methodManager.apply(methodName, [query], applyOpts).then(null, function (e) {
+            return localRemove.then(function (remDocs) {
+              return _this3.db.insertAll(remDocs, { quiet: true });
+            }).then(function () {
+              throw e;
+            });
+          });
 
           if (waitResult) {
-            return result;
-          } else {
-            result.then(null, function (e) {
-              return localRemove.then(function (remDocs) {
-                return _this3.db.insertAll(remDocs, { quiet: true });
-              }).then(function () {
-                throw e;
-              });
+            return result.then(function () {
+              return localRemove;
             });
           }
         }
 
-        localRemove = _get(Object.getPrototypeOf(CollectionManager.prototype), 'remove', this).call(this, query, options);
         return localRemove;
       }
 
@@ -207,7 +203,7 @@ function createCollectionDelegate(connection) {
 
         var options = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
-        var localUpdate = undefined;
+        var localUpdate = _get(Object.getPrototypeOf(CollectionManager.prototype), 'update', this).call(this, query, modifier, options);
         var quiet = options.quiet;
         var _options$retryOnDisco3 = options.retryOnDisconnect;
         var retryOnDisconnect = _options$retryOnDisco3 === undefined ? true : _options$retryOnDisco3;
@@ -218,30 +214,29 @@ function createCollectionDelegate(connection) {
         if (!quiet) {
           var methodName = '/' + this.db.modelName + '/update';
           var applyOpts = { retryOnDisconnect: !!retryOnDisconnect };
-          var result = connection.methodManager.apply(methodName, [query, modifier, otherOpts], applyOpts);
+          var result = connection.methodManager.apply(methodName, [query, modifier, otherOpts], applyOpts).then(null, function (e) {
+            return localUpdate.then(function (res) {
+              return (0, _map3.default)(res.updated, function (d, i) {
+                if (!res.original[i]) {
+                  return _this4.db.remove(d._id, { quiet: true });
+                } else {
+                  var docId = res.original[i]._id;
+                  delete res.original[i]._id;
+                  return _this4.db.update({ _id: docId }, res.original[i], { quiet: true, upsert: true });
+                }
+              });
+            }).then(function () {
+              throw e;
+            });
+          });
 
           if (waitResult) {
-            return result;
-          } else {
-            result.then(null, function (e) {
-              return localUpdate.then(function (res) {
-                return (0, _map3.default)(res.updated, function (d, i) {
-                  if (!res.original[i]) {
-                    return _this4.db.remove(d._id, { quiet: true });
-                  } else {
-                    var docId = res.original[i]._id;
-                    delete res.original[i]._id;
-                    return _this4.db.update({ _id: docId }, res.original[i], { quiet: true, upsert: true });
-                  }
-                });
-              }).then(function () {
-                throw e;
-              });
+            return result.then(function () {
+              return localUpdate;
             });
           }
         }
 
-        localUpdate = _get(Object.getPrototypeOf(CollectionManager.prototype), 'update', this).call(this, query, modifier, options);
         return localUpdate;
       }
     }, {
