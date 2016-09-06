@@ -76,6 +76,7 @@ function createCursorWithSub(connection) {
           return _get(Object.getPrototypeOf(CursorWithSub.prototype), '_doUpdate', _this2).call(_this2, firstRun);
         };
 
+        // When subscription is not initiated
         if (!this._subscription && sub) {
           var _connection$subManage;
 
@@ -102,6 +103,12 @@ function createCursorWithSub(connection) {
               }
             });
           }
+        }
+
+        // When subscription initiated but not ready
+        // (this case is used when cached result is used)
+        if (this._subscription && !this._subscription.isReady) {
+          return this._subscription.ready().then(superUpdate);
         }
 
         return superUpdate();
