@@ -115,7 +115,9 @@ function createCollectionDelegate(connection) {
           var result = connection.methodManager.apply(methodName, [doc], applyOpts);
 
           if (waitResult) {
-            return result;
+            return result.then(function () {
+              return doc._id;
+            });
           } else {
             result.then(null, function (e) {
               return localInsert.then(function () {
